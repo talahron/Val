@@ -1,8 +1,13 @@
 from src.models import (
     CatalogProfile,
+    DataCatalog,
+    Evidence,
+    EvidenceRelation,
     InvestigationToolSpec,
     SourceKind,
     ToolInputField,
+    ToolExecutionRequest,
+    ToolExecutionResult,
     ToolValidationResult,
 )
 
@@ -27,6 +32,21 @@ class InvestigationToolFactory:
             raise ValueError("InvestigationToolFactory.setup() must be called first.")
 
         return [self._validate_spec(spec) for spec in specs]
+
+    def execute_spec(
+        self,
+        spec: InvestigationToolSpec,
+        catalog: DataCatalog,
+        request: ToolExecutionRequest,
+    ) -> ToolExecutionResult:
+        if not self._is_ready:
+            raise ValueError("InvestigationToolFactory.setup() must be called first.")
+        if spec.name != request.tool_name:
+            raise ValueError("Tool execution request does not match the selected spec.")
+
+        if spec.name == "catalog_summary":
+            return self._execute_catalog_summary(spec, catalog)
+        return self._execute_source_inspection(spec, catalog, request)
 
     def _catalog_summary_spec(self) -> InvestigationToolSpec:
         return InvestigationToolSpec(
@@ -73,3 +93,62 @@ class InvestigationToolFactory:
         is_valid = has_name and has_inputs and has_output
         summary = "Tool spec is valid." if is_valid else "Tool spec is missing required metadata."
         return ToolValidationResult(tool_name=spec.name, is_valid=is_valid, summary=summary)
+
+    def _execute_catalog_summary(
+        self,
+        spec: InvestigationToolSpec,
+        catalog: DataCatalog,
+    ) -> ToolExecutionResult:
+        evidence = [
+            Evidence(
+                evidence_id=f"{spec.name}:file_type:{summary.suffix}",
+                source_path=catalog.root,
+                signal_type="catalog_file_type_summary",
+                summary=(
+                    f"Detected {summary.count} files with suffix {summary.suffix} "
+                    f"covering {summary.total_size_bytes} bytes."
+                ),
+                relation=EvidenceRelation.NEUTRAL,
+                confidence=1.0,
+            )
+            for summary in catalog.file_type_summaries
+        ]
+        return ToolExecutionResult(
+            tool_name=spec.name,
+            is_successful=True,
+            evidence=evidence,
+            summary=f"Catalog summary produced {len(evidence)} evidence records.",
+        )
+
+    def _execute_source_inspection(
+        self,
+        spec: InvestigationToolSpec,
+        catalog: DataCatalog,
+        request: ToolExecutionRequest,
+    ) -> ToolExecutionResult:
+        matching_files = [
+            file_profile
+            for file_profile in catalog.files
+            if file_profile.source_kind == request.source_kind
+        ]
+        evidence = [
+            Evidence(
+                evidence_id=f"{spec.name}:source:{index}",
+                source_path=file_profile.path,
+                entity_id=request.entity_id,
+                signal_type=f"{request.source_kind.value}_source_available",
+                summary=(
+                    f"Source file {file_profile.relative_path.as_posix()} is available "
+                    f"for {request.source_kind.value} inspection."
+                ),
+                relation=EvidenceRelation.NEUTRAL,
+                confidence=0.5,
+            )
+            for index, file_profile in enumerate(matching_files, start=1)
+        ]
+        return ToolExecutionResult(
+            tool_name=spec.name,
+            is_successful=True,
+            evidence=evidence,
+            summary=f"Inspected {len(matching_files)} {request.source_kind.value} sources.",
+        )

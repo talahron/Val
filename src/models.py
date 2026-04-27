@@ -116,3 +116,17 @@ class ToolValidationResult(BaseModel):
     tool_name: str
     is_valid: bool
     summary: str
+
+
+class ToolExecutionRequest(BaseModel):
+    tool_name: str
+    source_kind: SourceKind
+    time_window: str | None = None
+    entity_id: str | None = None
+
+
+class ToolExecutionResult(BaseModel):
+    tool_name: str
+    is_successful: bool
+    evidence: list[Evidence] = Field(default_factory=list)
+    summary: str

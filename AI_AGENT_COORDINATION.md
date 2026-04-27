@@ -74,12 +74,14 @@ Current repository state:
 - `src/models.py` contains all Pydantic data structures currently used by the app.
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
-- `src/tools.py` generates and validates initial investigation tool specs from the data profile.
+- `src/tools.py` generates, validates, and executes initial read-only investigation tool specs from the data profile.
+- `src/reports.py` writes RCA reports as JSON artifacts.
 - `src/agent.py` wraps the RCA workflow and prepares optional Pydantic AI integration.
 - `.gitignore` protects `.env`, `SA.json`, caches, virtual environments, and system files.
 - The current runtime is deterministic when `LLM_PROVIDER=none`.
 - Pydantic AI is only imported when an LLM provider is enabled.
-- Git repository exists locally, but there are no commits yet on `main`.
+- Tests use Python `unittest` so the suite can run without installing pytest.
+- Git repository is connected to `origin/main`.
 
 ## Architecture Constraints
 
@@ -111,10 +113,9 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Convert generated investigation tool specs into executable read-only tools with validated Pydantic inputs and outputs.
-- Add automated tests for data cataloging, profiling, tool spec generation, and agent report generation.
-- Add a report writer so RCA outputs can be saved as JSON/Markdown artifacts instead of only being logged.
-- Add CLI or environment-driven inputs for impacted SLI, anomaly time window, and customer context.
+- Expand executable tools beyond source availability into real schema inference, sample extraction, timestamp detection, and metric/log summaries.
+- Add automated tests for full agent report generation and report writing.
+- Add Markdown report output alongside JSON.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -124,3 +125,5 @@ Intended initial file layout:
 - Current place: Coordination file initialized. Repository contains only the generic plan and this coordination document; implementation has not started yet.
 - `2026-04-27 14:05:00 -0700` | `uncommitted` | `Codex` | Built the first runnable RCA scaffold with settings, logger, Pydantic models, data cataloging, profiling, and validated investigation tool specs.
 - Current place: `python main.py` and `python -m compileall main.py src` pass. Next work should turn `src/tools.py` specs into executable read-only investigation tools and add tests.
+- `2026-04-27 14:10:00 -0700` | `uncommitted` | `Codex` | Added executable read-only tool execution, JSON report writing, environment-driven investigation inputs, and unittest coverage for the pipeline.
+- Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should implement real sample/schema extraction and timestamp-aware evidence generation.

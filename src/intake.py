@@ -49,21 +49,22 @@ class DataCataloger:
 
     def _classify_source(self, path: Path) -> SourceKind:
         normalized = path.as_posix().lower()
+        path_tokens = {part.lower() for part in path.parts}
         suffix = path.suffix.lower()
 
         if suffix in {".zip", ".gz", ".tar", ".tgz"}:
             return SourceKind.ARCHIVE
         if suffix in {".md", ".txt", ".pptx", ".docx", ".pdf"} and "readme" in normalized:
             return SourceKind.DOCUMENTATION
-        if any(token in normalized for token in ("metric", "performance", "statistic")):
+        if self._has_source_token(path_tokens, {"metric", "metrics", "performance", "statistic", "statistics"}):
             return SourceKind.METRIC
-        if any(token in normalized for token in ("trace", "span")):
+        if self._has_source_token(path_tokens, {"trace", "traces", "span", "spans"}):
             return SourceKind.TRACE
-        if any(token in normalized for token in ("event", "audit")):
+        if self._has_source_token(path_tokens, {"event", "events", "audit", "audits"}):
             return SourceKind.EVENT
-        if any(token in normalized for token in ("config", "topology", "inventory")):
+        if self._has_source_token(path_tokens, {"config", "configuration", "topology", "inventory"}):
             return SourceKind.CONFIGURATION
-        if any(token in normalized for token in ("log", "message", "application")):
+        if self._has_source_token(path_tokens, {"log", "logs", "message", "messages", "application"}):
             return SourceKind.LOG
         if suffix in {".log", ".jtl"}:
             return SourceKind.LOG
@@ -79,7 +80,11 @@ class DataCataloger:
             ".ruff_cache",
             ".venv",
             "__pycache__",
+            "reports",
             "venv",
         }
         relative_parts = path.relative_to(self.data_root).parts
         return not any(part in ignored_parts or part.startswith(".") for part in relative_parts)
+
+    def _has_source_token(self, path_tokens: set[str], candidates: set[str]) -> bool:
+        return bool(path_tokens.intersection(candidates))
