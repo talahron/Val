@@ -301,11 +301,40 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(profiles[0].text_summary.error_count, 1)
             self.assertEqual(profiles[0].text_summary.warning_count, 1)
             self.assertEqual(profiles[0].text_summary.info_count, 1)
+            self.assertEqual(profiles[0].text_summary.message_templates[0].severity, "info")
 
             evidence_builder = EvidenceBuilder()
             evidence_builder.setup()
             evidence = evidence_builder.from_schema_profiles(profiles)
             self.assertIn("text_signal_summary", {item.signal_type for item in evidence})
+
+    def test_schema_profiler_extracts_repeated_message_templates(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "application.log").write_text(
+                "2026-01-01T10:00:00Z ERROR request 123 failed for user 99\n"
+                "2026-01-01T10:00:01Z ERROR request 456 failed for user 42\n"
+                "2026-01-01T10:00:02Z INFO request 789 completed for user 42\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=10)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            assert profiles[0].text_summary is not None
+            templates = profiles[0].text_summary.message_templates
+
+            self.assertEqual(templates[0].count, 2)
+            self.assertEqual(templates[0].severity, "error")
+            self.assertIn("request {number} failed", templates[0].template)
+
+            evidence_builder = EvidenceBuilder()
+            evidence_builder.setup()
+            evidence = evidence_builder.from_schema_profiles(profiles)
+            self.assertIn("message_template_summary", {item.signal_type for item in evidence})
 
 
 if __name__ == "__main__":

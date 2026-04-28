@@ -50,11 +50,18 @@ class NumericFieldSummary(BaseModel):
     observations: list[NumericObservation] = Field(default_factory=list)
 
 
+class MessageTemplateSummary(BaseModel):
+    template: str
+    count: int
+    severity: str = "unknown"
+
+
 class TextSignalSummary(BaseModel):
     error_count: int = 0
     warning_count: int = 0
     info_count: int = 0
     sample_messages: list[str] = Field(default_factory=list)
+    message_templates: list[MessageTemplateSummary] = Field(default_factory=list)
 
 
 class SourceSchemaProfile(BaseModel):

@@ -121,7 +121,7 @@ class EvidenceBuilder:
         summary = profile.text_summary
         if not (summary.error_count or summary.warning_count or summary.info_count):
             return []
-        return [
+        evidence = [
             Evidence(
                 evidence_id=f"schema:{self._safe_id(profile.source_path)}:text_summary",
                 source_path=profile.source_path,
@@ -134,3 +134,19 @@ class EvidenceBuilder:
                 confidence=0.65,
             )
         ]
+        if summary.message_templates:
+            top_templates = ", ".join(
+                f"{template.template} ({template.count})"
+                for template in summary.message_templates[:3]
+            )
+            evidence.append(
+                Evidence(
+                    evidence_id=f"schema:{self._safe_id(profile.source_path)}:message_templates",
+                    source_path=profile.source_path,
+                    signal_type="message_template_summary",
+                    summary=f"Top repeated message templates: {top_templates}.",
+                    relation=EvidenceRelation.NEUTRAL,
+                    confidence=0.7,
+                )
+            )
+        return evidence

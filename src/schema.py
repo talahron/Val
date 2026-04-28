@@ -1,10 +1,13 @@
 import csv
 import json
+import re
+from collections import Counter
 from pathlib import Path
 
 from src.models import (
     DataCatalog,
     FieldProfile,
+    MessageTemplateSummary,
     NumericFieldSummary,
     NumericObservation,
     SourceKind,
@@ -259,10 +262,41 @@ class SchemaProfiler:
             warning_count=warning_count,
             info_count=info_count,
             sample_messages=lines[:3],
+            message_templates=self._extract_message_templates(lines),
         )
 
     def _count_token(self, lines: list[str], tokens: tuple[str, ...]) -> int:
         return sum(1 for line in lines if any(token in line.lower() for token in tokens))
+
+    def _extract_message_templates(self, lines: list[str]) -> list[MessageTemplateSummary]:
+        templates = Counter(self._normalize_message_template(line) for line in lines)
+        return [
+            MessageTemplateSummary(
+                template=template,
+                count=count,
+                severity=self._infer_line_severity(template),
+            )
+            for template, count in templates.most_common(5)
+        ]
+
+    def _normalize_message_template(self, line: str) -> str:
+        normalized = line.strip()
+        normalized = re.sub(r"\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\b", "{timestamp}", normalized)
+        normalized = re.sub(r"\b\d{4}-\d{2}-\d{2}\b", "{date}", normalized)
+        normalized = re.sub(r"\b[0-9a-f]{8,}\b", "{hex}", normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r"\b\d+(?:\.\d+)?\b", "{number}", normalized)
+        normalized = re.sub(r"\s+", " ", normalized)
+        return normalized
+
+    def _infer_line_severity(self, line: str) -> str:
+        normalized = line.lower()
+        if any(token in normalized for token in ("fatal", "critical", "exception", "error")):
+            return "error"
+        if "warn" in normalized:
+            return "warning"
+        if any(token in normalized for token in ("info", "debug", "notice")):
+            return "info"
+        return "unknown"
 
     def _infer_text_source_kind(
         self,
