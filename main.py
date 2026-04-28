@@ -20,6 +20,7 @@ def main() -> None:
         max_schema_files=config.MAX_SCHEMA_FILES,
         max_schema_lines=config.MAX_SCHEMA_LINES,
         max_hypotheses=config.MAX_HYPOTHESES,
+        max_investigation_cycles=config.MAX_INVESTIGATION_CYCLES,
         llm_provider=config.LLM_PROVIDER,
         llm_model=config.LLM_MODEL,
         openai_api_key=config.OPENAI_API_KEY,

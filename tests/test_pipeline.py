@@ -112,6 +112,8 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(result.evidence[0].signal_type, "log_focused_match")
             self.assertEqual(result.evidence[0].relation, EvidenceRelation.SUPPORTS)
             self.assertIn("checkout failed", result.evidence[0].summary)
+            self.assertEqual(result.extractions[0].severity, "error")
+            self.assertEqual(result.extractions[0].timestamp, "2026-01-01T10:00:10Z")
 
     def test_schema_profiler_infers_csv_field_roles(self) -> None:
         with TemporaryDirectory() as raw_path:
@@ -250,6 +252,7 @@ class PipelineTest(unittest.TestCase):
                 max_schema_files=10,
                 max_schema_lines=5,
                 max_hypotheses=5,
+                max_investigation_cycles=2,
                 llm_provider="none",
                 llm_model="openai:gpt-4.1-mini",
                 openai_api_key="",
@@ -265,7 +268,10 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(report.anomaly_candidates[0].time_aligned)
             self.assertTrue(report.hypotheses)
             self.assertTrue(report.investigation_cycles)
+            self.assertEqual(len(report.investigation_cycles), 2)
             self.assertEqual(report.investigation_cycles[0].hypothesis_count, len(report.hypotheses))
+            evidence_ids = [item.evidence_id for item in report.evidence]
+            self.assertEqual(len(evidence_ids), len(set(evidence_ids)))
             self.assertTrue((tmp_path / "report.json").exists())
             self.assertTrue((tmp_path / "report.md").exists())
 

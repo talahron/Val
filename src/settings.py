@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     MAX_SCHEMA_FILES: int = Field(default=25, description="Maximum files to sample for schema profiling.")
     MAX_SCHEMA_LINES: int = Field(default=5, description="Maximum lines to sample per schema-profiled file.")
     MAX_HYPOTHESES: int = Field(default=5, description="Maximum initial hypotheses to generate.")
+    MAX_INVESTIGATION_CYCLES: int = Field(default=1, description="Maximum bounded investigation cycles to run.")
     LOG_LEVEL: str = Field(default="INFO", description="Application log level.")
     LLM_PROVIDER: str = Field(default="none", description="LLM provider used by the RCA agent.")
     LLM_MODEL: str = Field(default="openai:gpt-4.1-mini", description="Pydantic AI model identifier.")

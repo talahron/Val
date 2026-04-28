@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from src.models import (
     CatalogProfile,
@@ -7,6 +8,7 @@ from src.models import (
     EvidenceRelation,
     InvestigationToolSpec,
     SourceKind,
+    StructuredExtraction,
     ToolInputField,
     ToolExecutionRequest,
     ToolExecutionResult,
@@ -134,10 +136,14 @@ class InvestigationToolFactory:
             if file_profile.source_kind == request.source_kind
         ]
         evidence: list[Evidence] = []
+        extractions: list[StructuredExtraction] = []
         for index, file_profile in enumerate(matching_files, start=1):
             focused_evidence = self._focused_source_evidence(spec, file_profile.path, request, index)
             if focused_evidence:
                 evidence.extend(focused_evidence)
+                extractions.extend(
+                    self._structured_extractions(file_profile.path, request)
+                )
                 continue
             evidence.append(
                 Evidence(
@@ -157,6 +163,7 @@ class InvestigationToolFactory:
             tool_name=spec.name,
             is_successful=True,
             evidence=evidence,
+            extractions=extractions,
             summary=f"Inspected {len(matching_files)} {request.source_kind.value} sources.",
         )
 
@@ -187,6 +194,42 @@ class InvestigationToolFactory:
             )
             for line_index, line in enumerate(matching_lines, start=1)
         ]
+
+    def _structured_extractions(
+        self,
+        source_path: Path,
+        request: ToolExecutionRequest,
+    ) -> list[StructuredExtraction]:
+        text = source_path.read_text(encoding="utf-8", errors="ignore")
+        return [
+            StructuredExtraction(
+                source_path=source_path,
+                source_kind=request.source_kind,
+                signal_type=f"{request.source_kind.value}_line_match",
+                timestamp=self._extract_timestamp(line),
+                entity_id=request.entity_id,
+                severity=self._extract_severity(line) if request.source_kind == SourceKind.LOG else None,
+                text=self._shorten(line.strip()),
+            )
+            for line in text.splitlines()
+            if self._line_matches_request(line, request)
+        ][:5]
+
+    def _extract_timestamp(self, line: str) -> str | None:
+        match = re.search(r"\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\b", line)
+        if not match:
+            return None
+        return match.group(0).replace(" ", "T")
+
+    def _extract_severity(self, line: str) -> str | None:
+        normalized = line.lower()
+        if any(token in normalized for token in ("fatal", "critical", "exception", "error")):
+            return "error"
+        if "warn" in normalized:
+            return "warning"
+        if any(token in normalized for token in ("info", "debug", "notice")):
+            return "info"
+        return None
 
     def _line_matches_request(self, line: str, request: ToolExecutionRequest) -> bool:
         if request.time_window and self._minute_prefix(request.time_window) in line.replace(" ", "T"):

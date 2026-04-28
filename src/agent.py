@@ -8,6 +8,8 @@ from src.intake import DataCataloger
 from src.logger import AppLogger
 from src.models import (
     AgentResponse,
+    DataCatalog,
+    Evidence,
     InvestigationCycle,
     InvestigationRequest,
     RCAHypothesis,
@@ -15,6 +17,7 @@ from src.models import (
     ToolExecutionRequest,
     ToolExecutionResult,
     ToolRunRecord,
+    InvestigationToolSpec,
     ToolValidationResult,
 )
 from src.evidence import EvidenceBuilder
@@ -36,6 +39,7 @@ class RCAAgent:
         max_schema_files: int,
         max_schema_lines: int,
         max_hypotheses: int,
+        max_investigation_cycles: int,
         llm_provider: str,
         llm_model: str,
         openai_api_key: str,
@@ -50,6 +54,7 @@ class RCAAgent:
         self.max_schema_files = max_schema_files
         self.max_schema_lines = max_schema_lines
         self.max_hypotheses = max_hypotheses
+        self.max_investigation_cycles = max_investigation_cycles
         self.llm_provider = llm_provider
         self.llm_model = llm_model
         self.openai_api_key = openai_api_key
@@ -78,6 +83,8 @@ class RCAAgent:
         self.hypothesis_builder.setup()
         self.tool_factory.setup()
         self.report_writer.setup()
+        if self.max_investigation_cycles < 1:
+            raise ValueError("max_investigation_cycles must be at least 1.")
         self._setup_llm_agent()
 
     def run(self) -> RCAReport:
@@ -93,22 +100,17 @@ class RCAAgent:
         tool_specs = self.tool_factory.generate_specs(profile)
         validation_results = self.tool_factory.validate_specs(tool_specs)
         valid_tool_count = sum(result.is_valid for result in validation_results)
-        execution_results = [
-            self.tool_factory.execute_spec(
-                spec=spec,
-                catalog=catalog,
-                request=ToolExecutionRequest(
-                    tool_name=spec.name,
-                    source_kind=spec.source_kind,
-                    time_window=request.anomaly_start,
-                ),
-            )
-            for spec in tool_specs
-        ]
+        cycle_results = self._run_investigation_cycles(
+            tool_specs=tool_specs,
+            validation_results=validation_results,
+            catalog=catalog,
+            request=request,
+        )
         evidence = [
             evidence
-            for execution_result in execution_results
-            for evidence in execution_result.evidence
+            for _, execution_results in cycle_results
+            for result in execution_results
+            for evidence in result.evidence
         ]
         evidence.extend(self.evidence_builder.from_schema_profiles(schema_profiles))
         entities = self.entity_extractor.from_schema_profiles(schema_profiles)
@@ -121,13 +123,17 @@ class RCAAgent:
             candidates=anomaly_candidates,
             evidence=evidence,
         )
-        investigation_cycle = self._build_investigation_cycle(
-            tool_specs_count=len(tool_specs),
-            validation_results=validation_results,
-            execution_results=execution_results,
-            evidence_count=len(evidence),
-            hypothesis_count=len(hypotheses),
-        )
+        investigation_cycles = [
+            self._build_investigation_cycle(
+                cycle_index=cycle_index,
+                tool_specs_count=len(tool_specs),
+                validation_results=validation_results,
+                execution_results=execution_results,
+                evidence_count=sum(len(result.evidence) for result in execution_results),
+                hypothesis_count=len(hypotheses),
+            )
+            for cycle_index, execution_results in cycle_results
+        ]
         report = RCAReport(
             executive_summary=(
                 "Initial RCA workspace profile completed. "
@@ -145,7 +151,7 @@ class RCAAgent:
             hypotheses=hypotheses,
             generated_tools=tool_specs,
             tool_validations=validation_results,
-            investigation_cycles=[investigation_cycle],
+            investigation_cycles=investigation_cycles,
             confidence=self._report_confidence(hypotheses),
             data_gaps=self._build_data_gaps(request),
         )
@@ -170,8 +176,65 @@ class RCAAgent:
             return 0.0
         return max(hypothesis.confidence for hypothesis in hypotheses)
 
+    def _run_investigation_cycles(
+        self,
+        tool_specs: list[InvestigationToolSpec],
+        validation_results: list[ToolValidationResult],
+        catalog: DataCatalog,
+        request: InvestigationRequest,
+    ) -> list[tuple[int, list[ToolExecutionResult]]]:
+        valid_tool_names = {
+            result.tool_name
+            for result in validation_results
+            if result.is_valid
+        }
+        cycles: list[tuple[int, list[ToolExecutionResult]]] = []
+        for cycle_index in range(1, self.max_investigation_cycles + 1):
+            execution_results = [
+                self._scope_execution_result_to_cycle(
+                    cycle_index=cycle_index,
+                    result=self.tool_factory.execute_spec(
+                        spec=spec,
+                        catalog=catalog,
+                        request=ToolExecutionRequest(
+                            tool_name=spec.name,
+                            source_kind=spec.source_kind,
+                            time_window=request.anomaly_start,
+                        ),
+                    ),
+                )
+                for spec in tool_specs
+                if spec.name in valid_tool_names
+            ]
+            cycles.append((cycle_index, execution_results))
+        return cycles
+
+    def _scope_execution_result_to_cycle(
+        self,
+        cycle_index: int,
+        result: ToolExecutionResult,
+    ) -> ToolExecutionResult:
+        return result.model_copy(
+            update={
+                "evidence": [
+                    self._scope_evidence_to_cycle(cycle_index, evidence)
+                    for evidence in result.evidence
+                ]
+            }
+        )
+
+    def _scope_evidence_to_cycle(
+        self,
+        cycle_index: int,
+        evidence: Evidence,
+    ) -> Evidence:
+        return evidence.model_copy(
+            update={"evidence_id": f"cycle:{cycle_index}:{evidence.evidence_id}"}
+        )
+
     def _build_investigation_cycle(
         self,
+        cycle_index: int,
         tool_specs_count: int,
         validation_results: list[ToolValidationResult],
         execution_results: list[ToolExecutionResult],
@@ -184,12 +247,13 @@ class RCAAgent:
                 was_validated=self._tool_was_validated(result.tool_name, validation_results),
                 was_executed=result.is_successful,
                 evidence_count=len(result.evidence),
+                extraction_count=len(result.extractions),
                 summary=result.summary,
             )
             for result in execution_results
         ]
         return InvestigationCycle(
-            cycle_id="cycle:deterministic:1",
+            cycle_id=f"cycle:deterministic:{cycle_index}",
             generated_tool_count=tool_specs_count,
             valid_tool_count=sum(result.is_valid for result in validation_results),
             execution_records=execution_records,

@@ -159,6 +159,7 @@ class ToolRunRecord(BaseModel):
     was_validated: bool
     was_executed: bool
     evidence_count: int
+    extraction_count: int
     summary: str
 
 
@@ -223,8 +224,20 @@ class ToolExecutionRequest(BaseModel):
     entity_id: str | None = None
 
 
+class StructuredExtraction(BaseModel):
+    source_path: Path
+    source_kind: SourceKind
+    signal_type: str
+    timestamp: str | None = None
+    entity_id: str | None = None
+    severity: str | None = None
+    value: float | None = None
+    text: str
+
+
 class ToolExecutionResult(BaseModel):
     tool_name: str
     is_successful: bool
     evidence: list[Evidence] = Field(default_factory=list)
+    extractions: list[StructuredExtraction] = Field(default_factory=list)
     summary: str

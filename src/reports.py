@@ -109,6 +109,7 @@ class ReportWriter:
             (
                 f"- `{cycle.cycle_id}` tools={cycle.generated_tool_count}, "
                 f"valid={cycle.valid_tool_count}, evidence={cycle.evidence_count}, "
+                f"extractions={sum(record.extraction_count for record in cycle.execution_records)}, "
                 f"hypotheses={cycle.hypothesis_count}"
             )
             for cycle in report.investigation_cycles

@@ -80,9 +80,9 @@ Current repository state:
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
 - `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, and repeated-template bursts.
 - `src/hypotheses.py` ranks anomaly candidates with time/entity/supporting-evidence context and records supporting evidence IDs on each hypothesis.
-- `src/tools.py` generates, validates, and executes read-only investigation tool specs from the data profile, including focused line matches by anomaly time window or entity when readable source text is available.
+- `src/tools.py` generates, validates, and executes read-only investigation tool specs from the data profile, including focused line matches by anomaly time window or entity and first-pass structured extractions when readable source text is available.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
-- `src/agent.py` wraps the RCA workflow, records the deterministic generate-validate-execute-update cycle, and prepares optional Pydantic AI integration.
+- `src/agent.py` wraps the RCA workflow, records bounded deterministic generate-validate-execute-update cycles, scopes cycle evidence IDs, and prepares optional Pydantic AI integration.
 - `.gitignore` protects `.env`, `SA.json`, caches, virtual environments, and system files.
 - The current runtime is deterministic when `LLM_PROVIDER=none`.
 - Pydantic AI is only imported when an LLM provider is enabled.
@@ -119,9 +119,9 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Expand executable tools beyond line matching into structured extraction outputs per source type.
+- Expand structured extraction beyond first-pass readable-line matches into source-specific metric, event, trace, config, and topology extraction models.
 - Improve hypothesis ranking with topology/entity relationships beyond flat entity IDs.
-- Turn the deterministic investigation cycle into an LLM/RLM-controlled loop with bounded iterations and tool proposal validation.
+- Turn bounded deterministic investigation cycles into an LLM/RLM-controlled loop with tool proposal validation.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
 ## Current Active Stage
@@ -156,3 +156,5 @@ Intended initial file layout:
 - Current place: 16 unittest tests pass. Next work should add structured extraction outputs per source type and then build the first deterministic generate-validate-execute loop skeleton.
 - `2026-04-28 03:35:00 -0700` | `uncommitted` | `Codex` | Added Pydantic investigation-cycle state for the deterministic generate-validate-execute-update workflow and exposed it in reports.
 - Current place: 16 unittest tests pass. Next work should turn the deterministic cycle into a bounded LLM/RLM-controlled loop and add structured extraction outputs per source type.
+- `2026-04-28 06:55:00 -0700` | `uncommitted` | `Codex` | Added configurable bounded investigation cycles, cycle-scoped evidence IDs, and first-pass structured extraction records from focused tool execution.
+- Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should deepen extraction models by source type and connect the bounded cycle to an LLM/RLM planner.
