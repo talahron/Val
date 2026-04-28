@@ -2,7 +2,13 @@ import csv
 import json
 from pathlib import Path
 
-from src.models import DataCatalog, FieldProfile, NumericFieldSummary, SourceSchemaProfile
+from src.models import (
+    DataCatalog,
+    FieldProfile,
+    NumericFieldSummary,
+    NumericObservation,
+    SourceSchemaProfile,
+)
 
 
 class SchemaProfiler:
@@ -47,7 +53,7 @@ class SchemaProfiler:
             data_rows = reader[1:]
             fields = [FieldProfile(name=name, inferred_role=self._infer_field_role(name)) for name in header]
             timestamp_examples = self._extract_timestamp_examples(fields, data_rows)
-            numeric_summaries = self._summarize_numeric_fields(header, data_rows)
+            numeric_summaries = self._summarize_numeric_fields(fields, header, data_rows)
             delimiter = dialect.delimiter
         else:
             delimiter = None
@@ -79,7 +85,7 @@ class SchemaProfiler:
                     for field in fields
                     if field.inferred_role == "timestamp" and field.name in parsed
                 ][:3]
-                numeric_summaries = self._summarize_json_numeric_fields(parsed)
+                numeric_summaries = self._summarize_json_numeric_fields(fields, parsed)
         return SourceSchemaProfile(
             source_path=path,
             suffix=path.suffix.lower(),
@@ -134,16 +140,25 @@ class SchemaProfiler:
 
     def _summarize_numeric_fields(
         self,
+        fields: list[FieldProfile],
         header: list[str],
         data_rows: list[list[str]],
     ) -> list[NumericFieldSummary]:
         summaries: list[NumericFieldSummary] = []
+        timestamp_index = self._first_role_index(fields, "timestamp")
+        entity_index = self._first_role_index(fields, "entity")
         for index, field_name in enumerate(header):
-            values = [
-                float(row[index])
+            observations = [
+                NumericObservation(
+                    field_name=field_name,
+                    value=float(row[index]),
+                    timestamp=self._row_value(row, timestamp_index),
+                    entity_id=self._row_value(row, entity_index),
+                )
                 for row in data_rows
                 if index < len(row) and self._is_float(row[index])
             ]
+            values = [observation.value for observation in observations]
             if not values:
                 continue
             summaries.append(
@@ -153,12 +168,19 @@ class SchemaProfiler:
                     minimum=min(values),
                     maximum=max(values),
                     average=sum(values) / len(values),
+                    observations=observations,
                 )
             )
         return summaries
 
-    def _summarize_json_numeric_fields(self, parsed: dict[object, object]) -> list[NumericFieldSummary]:
+    def _summarize_json_numeric_fields(
+        self,
+        fields: list[FieldProfile],
+        parsed: dict[object, object],
+    ) -> list[NumericFieldSummary]:
         summaries: list[NumericFieldSummary] = []
+        timestamp_key = self._first_role_name(fields, "timestamp")
+        entity_key = self._first_role_name(fields, "entity")
         for key, value in parsed.items():
             if isinstance(value, int | float):
                 numeric_value = float(value)
@@ -169,6 +191,14 @@ class SchemaProfiler:
                         minimum=numeric_value,
                         maximum=numeric_value,
                         average=numeric_value,
+                        observations=[
+                            NumericObservation(
+                                field_name=str(key),
+                                value=numeric_value,
+                                timestamp=str(parsed[timestamp_key]) if timestamp_key in parsed else None,
+                                entity_id=str(parsed[entity_key]) if entity_key in parsed else None,
+                            )
+                        ],
                     )
                 )
         return summaries
@@ -182,3 +212,21 @@ class SchemaProfiler:
         except ValueError:
             return False
         return True
+
+    def _first_role_index(self, fields: list[FieldProfile], role: str) -> int | None:
+        for index, field in enumerate(fields):
+            if field.inferred_role == role:
+                return index
+        return None
+
+    def _first_role_name(self, fields: list[FieldProfile], role: str) -> str:
+        for field in fields:
+            if field.inferred_role == role:
+                return field.name
+        return ""
+
+    def _row_value(self, row: list[str], index: int | None) -> str | None:
+        if index is None or index >= len(row):
+            return None
+        value = row[index].strip()
+        return value or None

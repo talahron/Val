@@ -34,12 +34,20 @@ class FieldProfile(BaseModel):
     inferred_role: str
 
 
+class NumericObservation(BaseModel):
+    field_name: str
+    value: float
+    timestamp: str | None = None
+    entity_id: str | None = None
+
+
 class NumericFieldSummary(BaseModel):
     name: str
     count: int
     minimum: float
     maximum: float
     average: float
+    observations: list[NumericObservation] = Field(default_factory=list)
 
 
 class SourceSchemaProfile(BaseModel):
@@ -93,6 +101,9 @@ class AnomalyCandidate(BaseModel):
     signal_name: str
     score: float = Field(ge=0.0)
     summary: str
+    time_aligned: bool = False
+    timestamp: str | None = None
+    entity_id: str | None = None
 
 
 class RCAHypothesis(BaseModel):

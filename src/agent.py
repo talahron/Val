@@ -94,7 +94,10 @@ class RCAAgent:
             for evidence in execution_result.evidence
         ]
         evidence.extend(self.evidence_builder.from_schema_profiles(schema_profiles))
-        anomaly_candidates = self.anomaly_builder.from_schema_profiles(schema_profiles)
+        anomaly_candidates = self.anomaly_builder.from_schema_profiles(
+            schema_profiles=schema_profiles,
+            anomaly_start=request.anomaly_start,
+        )
         hypotheses = self.hypothesis_builder.from_anomaly_candidates(
             request=request,
             candidates=anomaly_candidates,

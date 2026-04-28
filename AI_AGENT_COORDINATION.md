@@ -118,7 +118,7 @@ Intended initial file layout:
 ## Current Task List
 
 - Expand executable tools beyond source availability into deeper log summaries and time-window filtering.
-- Improve hypothesis ranking with time-window alignment, entity hints, and evidence density.
+- Improve hypothesis ranking with evidence density and richer source-type classification based on inferred schemas.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -138,3 +138,5 @@ Intended initial file layout:
 - Current place: 8 unittest tests pass. Local branch has commits ahead of origin because `git push origin main` is timing out after commit creation.
 - `2026-04-28 02:02:00 -0700` | `uncommitted` | `Codex` | Added initial RCA hypothesis generation from anomaly candidates and included hypotheses in JSON/Markdown reports.
 - Current place: 9 unittest tests pass. Next work should make hypotheses time-window aware and add richer source-type classification based on inferred schemas.
+- `2026-04-28 03:17:00 -0700` | `uncommitted` | `Codex` | Added numeric observations with timestamp/entity propagation and time-aligned anomaly candidate scoring.
+- Current place: 10 unittest tests pass. Next work should infer source categories from schema roles and start building entity extraction beyond CSV headers.

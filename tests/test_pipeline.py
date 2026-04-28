@@ -97,6 +97,11 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(roles["status_code"], "status")
             self.assertEqual(profiles[0].timestamp_examples, ["1"])
             self.assertTrue(any(summary.name == "cpu_usage" for summary in profiles[0].numeric_summaries))
+            cpu_summary = next(
+                summary for summary in profiles[0].numeric_summaries if summary.name == "cpu_usage"
+            )
+            self.assertEqual(cpu_summary.observations[0].timestamp, "1")
+            self.assertEqual(cpu_summary.observations[0].entity_id, "api")
 
     def test_evidence_builder_creates_schema_role_evidence(self) -> None:
         with TemporaryDirectory() as raw_path:
@@ -162,6 +167,28 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(candidates)
             self.assertEqual(candidates[0].signal_name, "cpu")
 
+    def test_anomaly_candidate_builder_marks_time_aligned_candidates(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "metrics.csv").write_text(
+                "timestamp,service,cpu\n1,api,10\n2,api,90\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=5)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            builder = AnomalyCandidateBuilder()
+            builder.setup()
+            candidates = builder.from_schema_profiles(profiles, anomaly_start="2")
+
+            self.assertTrue(candidates[0].time_aligned)
+            self.assertEqual(candidates[0].timestamp, "2")
+            self.assertEqual(candidates[0].entity_id, "api")
+
     def test_rca_agent_runs_full_deterministic_workflow(self) -> None:
         with TemporaryDirectory() as raw_path:
             tmp_path = Path(raw_path)
@@ -194,6 +221,7 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(report.impacted_sli, "latency")
             self.assertTrue(report.evidence)
             self.assertTrue(report.anomaly_candidates)
+            self.assertTrue(report.anomaly_candidates[0].time_aligned)
             self.assertTrue(report.hypotheses)
             self.assertTrue((tmp_path / "report.json").exists())
             self.assertTrue((tmp_path / "report.md").exists())

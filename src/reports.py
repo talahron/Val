@@ -70,7 +70,10 @@ class ReportWriter:
         if not report.anomaly_candidates:
             return ["- No anomaly candidates identified."]
         return [
-            f"- `{candidate.signal_name}` score={candidate.score:.3f}: {candidate.summary}"
+            (
+                f"- `{candidate.signal_name}` score={candidate.score:.3f}"
+                f"{' time-aligned' if candidate.time_aligned else ''}: {candidate.summary}"
+            )
             for candidate in report.anomaly_candidates[:20]
         ]
 
