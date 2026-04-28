@@ -5,6 +5,7 @@ import unittest
 from src.intake import DataCataloger
 from src.models import SourceKind
 from src.profiler import DataProfiler
+from src.schema import SchemaProfiler
 from src.tools import InvestigationToolFactory, ToolExecutionRequest
 
 
@@ -67,6 +68,27 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(all(result.is_valid for result in validations))
             self.assertTrue(all(result.is_successful for result in executions))
             self.assertTrue(any(spec.source_kind == SourceKind.METRIC for spec in specs))
+
+    def test_schema_profiler_infers_csv_field_roles(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "events.csv").write_text(
+                "timestamp,service,cpu_usage,status_code\n1,api,90,500\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=5)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            roles = {field.name: field.inferred_role for field in profiles[0].fields}
+            self.assertEqual(roles["timestamp"], "timestamp")
+            self.assertEqual(roles["service"], "entity")
+            self.assertEqual(roles["cpu_usage"], "metric")
+            self.assertEqual(roles["status_code"], "status")
 
 
 if __name__ == "__main__":

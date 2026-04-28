@@ -1,6 +1,6 @@
 # AI Agent Coordination
 
-Last updated: 2026-04-27
+Last updated: 2026-04-28
 Repository: `C:\Users\CCSV\Desktop\Projects\Validation\Val`
 
 ## Purpose
@@ -74,6 +74,7 @@ Current repository state:
 - `src/models.py` contains all Pydantic data structures currently used by the app.
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
+- `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
 - `src/tools.py` generates, validates, and executes initial read-only investigation tool specs from the data profile.
 - `src/reports.py` writes RCA reports as JSON artifacts.
 - `src/agent.py` wraps the RCA workflow and prepares optional Pydantic AI integration.
@@ -113,7 +114,7 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Expand executable tools beyond source availability into real schema inference, sample extraction, timestamp detection, and metric/log summaries.
+- Expand executable tools beyond source availability into timestamp-aware evidence, metric/log summaries, and early anomaly candidates.
 - Add automated tests for full agent report generation and report writing.
 - Add Markdown report output alongside JSON.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
@@ -127,3 +128,5 @@ Intended initial file layout:
 - Current place: `python main.py` and `python -m compileall main.py src` pass. Next work should turn `src/tools.py` specs into executable read-only investigation tools and add tests.
 - `2026-04-27 14:10:00 -0700` | `uncommitted` | `Codex` | Added executable read-only tool execution, JSON report writing, environment-driven investigation inputs, and unittest coverage for the pipeline.
 - Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should implement real sample/schema extraction and timestamp-aware evidence generation.
+- `2026-04-28 01:45:00 -0700` | `uncommitted` | `Codex` | Added schema/sample profiling for readable sources and field-role inference for CSV/JSON data.
+- Current place: Schema profiling is local and tests pass. Next work should turn schema profiles into timestamp-aware evidence and lightweight metric/log summaries.

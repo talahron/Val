@@ -16,6 +16,8 @@ def main() -> None:
         impacted_sli=config.IMPACTED_SLI or None,
         anomaly_start=config.ANOMALY_START or None,
         customer_context=config.CUSTOMER_CONTEXT or None,
+        max_schema_files=config.MAX_SCHEMA_FILES,
+        max_schema_lines=config.MAX_SCHEMA_LINES,
         llm_provider=config.LLM_PROVIDER,
         llm_model=config.LLM_MODEL,
         openai_api_key=config.OPENAI_API_KEY,

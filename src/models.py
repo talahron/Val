@@ -29,6 +29,20 @@ class FileProfile(BaseModel):
     source_kind: SourceKind
 
 
+class FieldProfile(BaseModel):
+    name: str
+    inferred_role: str
+
+
+class SourceSchemaProfile(BaseModel):
+    source_path: Path
+    suffix: str
+    is_text_readable: bool
+    sample_line_count: int
+    delimiter: str | None = None
+    fields: list[FieldProfile] = Field(default_factory=list)
+
+
 class FileTypeSummary(BaseModel):
     suffix: str
     count: int
@@ -83,6 +97,7 @@ class RCAReport(BaseModel):
     suspected_root_cause: str | None
     affected_entities: list[Entity] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
+    schema_profiles: list[SourceSchemaProfile] = Field(default_factory=list)
     generated_tools: list[InvestigationToolSpec] = Field(default_factory=list)
     tool_validations: list[ToolValidationResult] = Field(default_factory=list)
     alternative_hypotheses: list[str] = Field(default_factory=list)

@@ -6,6 +6,7 @@ from src.logger import AppLogger
 from src.models import AgentResponse, InvestigationRequest, RCAReport, ToolExecutionRequest
 from src.profiler import DataProfiler
 from src.reports import ReportWriter
+from src.schema import SchemaProfiler
 from src.tools import InvestigationToolFactory
 
 
@@ -17,6 +18,8 @@ class RCAAgent:
         impacted_sli: str | None,
         anomaly_start: str | None,
         customer_context: str | None,
+        max_schema_files: int,
+        max_schema_lines: int,
         llm_provider: str,
         llm_model: str,
         openai_api_key: str,
@@ -27,12 +30,15 @@ class RCAAgent:
         self.impacted_sli = impacted_sli
         self.anomaly_start = anomaly_start
         self.customer_context = customer_context
+        self.max_schema_files = max_schema_files
+        self.max_schema_lines = max_schema_lines
         self.llm_provider = llm_provider
         self.llm_model = llm_model
         self.openai_api_key = openai_api_key
         self.logger = logger
         self.cataloger = DataCataloger(data_root=data_root)
         self.profiler = DataProfiler()
+        self.schema_profiler = SchemaProfiler(max_files=max_schema_files, max_lines=max_schema_lines)
         self.tool_factory = InvestigationToolFactory()
         self.report_writer = ReportWriter(output_path=output_path)
         self._pydantic_agent: Any | None = None
@@ -40,6 +46,7 @@ class RCAAgent:
     def setup(self) -> None:
         self.cataloger.setup()
         self.profiler.setup()
+        self.schema_profiler.setup()
         self.tool_factory.setup()
         self.report_writer.setup()
         self._setup_llm_agent()
@@ -53,6 +60,7 @@ class RCAAgent:
         )
         catalog = self.cataloger.build_catalog()
         profile = self.profiler.profile(catalog)
+        schema_profiles = self.schema_profiler.profile_catalog(catalog)
         tool_specs = self.tool_factory.generate_specs(profile)
         validation_results = self.tool_factory.validate_specs(tool_specs)
         valid_tool_count = sum(result.is_valid for result in validation_results)
@@ -80,6 +88,7 @@ class RCAAgent:
             impacted_sli=request.impacted_sli,
             suspected_root_cause=None,
             evidence=evidence,
+            schema_profiles=schema_profiles,
             generated_tools=tool_specs,
             tool_validations=validation_results,
             confidence=0.0,
