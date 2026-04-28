@@ -91,6 +91,7 @@ class PipelineTest(unittest.TestCase):
             profiles = schema_profiler.profile_catalog(catalog)
 
             roles = {field.name: field.inferred_role for field in profiles[0].fields}
+            self.assertEqual(profiles[0].inferred_source_kind, SourceKind.METRIC)
             self.assertEqual(roles["timestamp"], "timestamp")
             self.assertEqual(roles["service"], "entity")
             self.assertEqual(roles["cpu_usage"], "metric")
@@ -120,6 +121,7 @@ class PipelineTest(unittest.TestCase):
             evidence = builder.from_schema_profiles(profiles)
             signal_types = {item.signal_type for item in evidence}
 
+            self.assertIn("source_kind_inferred", signal_types)
             self.assertIn("timestamp_field_detected", signal_types)
             self.assertIn("entity_field_detected", signal_types)
             self.assertIn("metric_field_detected", signal_types)

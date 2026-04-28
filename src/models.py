@@ -53,6 +53,7 @@ class NumericFieldSummary(BaseModel):
 class SourceSchemaProfile(BaseModel):
     source_path: Path
     suffix: str
+    inferred_source_kind: SourceKind = SourceKind.UNKNOWN
     is_text_readable: bool
     sample_line_count: int
     delimiter: str | None = None

@@ -34,6 +34,20 @@ class EvidenceBuilder:
                 confidence=0.7 if profile.is_text_readable else 0.2,
             )
         ]
+        if profile.inferred_source_kind.value != "unknown":
+            evidence.append(
+                Evidence(
+                    evidence_id=f"schema:{self._safe_id(profile.source_path)}:source_kind",
+                    source_path=profile.source_path,
+                    signal_type="source_kind_inferred",
+                    summary=(
+                        f"Inferred {profile.inferred_source_kind.value} source kind "
+                        f"from fields in {profile.source_path.as_posix()}."
+                    ),
+                    relation=EvidenceRelation.NEUTRAL,
+                    confidence=0.7,
+                )
+            )
 
         for role, count in role_counts.items():
             evidence.append(

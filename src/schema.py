@@ -7,6 +7,7 @@ from src.models import (
     FieldProfile,
     NumericFieldSummary,
     NumericObservation,
+    SourceKind,
     SourceSchemaProfile,
 )
 
@@ -60,6 +61,7 @@ class SchemaProfiler:
         return SourceSchemaProfile(
             source_path=path,
             suffix=".csv",
+            inferred_source_kind=self._infer_source_kind(fields),
             is_text_readable=True,
             sample_line_count=len(lines),
             delimiter=delimiter,
@@ -89,6 +91,7 @@ class SchemaProfiler:
         return SourceSchemaProfile(
             source_path=path,
             suffix=path.suffix.lower(),
+            inferred_source_kind=self._infer_source_kind(fields),
             is_text_readable=True,
             sample_line_count=len(lines),
             fields=fields,
@@ -101,6 +104,7 @@ class SchemaProfiler:
         return SourceSchemaProfile(
             source_path=path,
             suffix=path.suffix.lower() or "<none>",
+            inferred_source_kind=SourceKind.UNKNOWN,
             is_text_readable=bool(lines),
             sample_line_count=len(lines),
         )
@@ -122,6 +126,16 @@ class SchemaProfiler:
         if any(token in normalized for token in ("cpu", "memory", "cost", "rate", "usage")):
             return "metric"
         return "unknown"
+
+    def _infer_source_kind(self, fields: list[FieldProfile]) -> SourceKind:
+        roles = {field.inferred_role for field in fields}
+        if "metric" in roles or "latency" in roles:
+            return SourceKind.METRIC
+        if "status" in roles and "timestamp" in roles:
+            return SourceKind.EVENT
+        if "timestamp" in roles and "entity" in roles:
+            return SourceKind.LOG
+        return SourceKind.UNKNOWN
 
     def _extract_timestamp_examples(
         self,
