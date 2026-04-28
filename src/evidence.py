@@ -62,6 +62,7 @@ class EvidenceBuilder:
             )
         evidence.extend(self._build_timestamp_evidence(profile))
         evidence.extend(self._build_numeric_summary_evidence(profile))
+        evidence.extend(self._build_text_summary_evidence(profile))
         return evidence
 
     def _count_roles(self, fields: list[FieldProfile]) -> dict[str, int]:
@@ -112,4 +113,24 @@ class EvidenceBuilder:
                 confidence=0.75,
             )
             for summary in profile.numeric_summaries
+        ]
+
+    def _build_text_summary_evidence(self, profile: SourceSchemaProfile) -> list[Evidence]:
+        if not profile.text_summary:
+            return []
+        summary = profile.text_summary
+        if not (summary.error_count or summary.warning_count or summary.info_count):
+            return []
+        return [
+            Evidence(
+                evidence_id=f"schema:{self._safe_id(profile.source_path)}:text_summary",
+                source_path=profile.source_path,
+                signal_type="text_signal_summary",
+                summary=(
+                    f"Text sample contains errors={summary.error_count}, "
+                    f"warnings={summary.warning_count}, info/debug={summary.info_count}."
+                ),
+                relation=EvidenceRelation.NEUTRAL,
+                confidence=0.65,
+            )
         ]

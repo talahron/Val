@@ -50,6 +50,13 @@ class NumericFieldSummary(BaseModel):
     observations: list[NumericObservation] = Field(default_factory=list)
 
 
+class TextSignalSummary(BaseModel):
+    error_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    sample_messages: list[str] = Field(default_factory=list)
+
+
 class SourceSchemaProfile(BaseModel):
     source_path: Path
     suffix: str
@@ -60,6 +67,7 @@ class SourceSchemaProfile(BaseModel):
     fields: list[FieldProfile] = Field(default_factory=list)
     timestamp_examples: list[str] = Field(default_factory=list)
     numeric_summaries: list[NumericFieldSummary] = Field(default_factory=list)
+    text_summary: TextSignalSummary | None = None
 
 
 class FileTypeSummary(BaseModel):

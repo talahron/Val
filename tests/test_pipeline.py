@@ -279,6 +279,34 @@ class PipelineTest(unittest.TestCase):
             self.assertIn("cpu", entities[0].observed_metric_names)
             self.assertIn("memory", entities[0].observed_metric_names)
 
+    def test_schema_profiler_summarizes_text_log_signals(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "application.log").write_text(
+                "2026-01-01 INFO service started\n"
+                "2026-01-01 WARN queue depth high\n"
+                "2026-01-01 ERROR request failed\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=5)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            self.assertEqual(profiles[0].inferred_source_kind, SourceKind.LOG)
+            self.assertIsNotNone(profiles[0].text_summary)
+            assert profiles[0].text_summary is not None
+            self.assertEqual(profiles[0].text_summary.error_count, 1)
+            self.assertEqual(profiles[0].text_summary.warning_count, 1)
+            self.assertEqual(profiles[0].text_summary.info_count, 1)
+
+            evidence_builder = EvidenceBuilder()
+            evidence_builder.setup()
+            evidence = evidence_builder.from_schema_profiles(profiles)
+            self.assertIn("text_signal_summary", {item.signal_type for item in evidence})
+
 
 if __name__ == "__main__":
     unittest.main()

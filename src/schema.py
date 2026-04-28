@@ -9,6 +9,7 @@ from src.models import (
     NumericObservation,
     SourceKind,
     SourceSchemaProfile,
+    TextSignalSummary,
 )
 
 
@@ -101,12 +102,14 @@ class SchemaProfiler:
 
     def _profile_text(self, path: Path) -> SourceSchemaProfile:
         lines = self._read_sample_lines(path)
+        text_summary = self._summarize_text_lines(lines)
         return SourceSchemaProfile(
             source_path=path,
             suffix=path.suffix.lower() or "<none>",
-            inferred_source_kind=SourceKind.UNKNOWN,
+            inferred_source_kind=self._infer_text_source_kind(path, text_summary),
             is_text_readable=bool(lines),
             sample_line_count=len(lines),
+            text_summary=text_summary,
         )
 
     def _read_sample_lines(self, path: Path) -> list[str]:
@@ -244,3 +247,32 @@ class SchemaProfiler:
             return None
         value = row[index].strip()
         return value or None
+
+    def _summarize_text_lines(self, lines: list[str]) -> TextSignalSummary | None:
+        if not lines:
+            return None
+        error_count = self._count_token(lines, ("error", "exception", "critical", "fatal"))
+        warning_count = self._count_token(lines, ("warn", "warning"))
+        info_count = self._count_token(lines, ("info", "debug", "notice"))
+        return TextSignalSummary(
+            error_count=error_count,
+            warning_count=warning_count,
+            info_count=info_count,
+            sample_messages=lines[:3],
+        )
+
+    def _count_token(self, lines: list[str], tokens: tuple[str, ...]) -> int:
+        return sum(1 for line in lines if any(token in line.lower() for token in tokens))
+
+    def _infer_text_source_kind(
+        self,
+        path: Path,
+        text_summary: TextSignalSummary | None,
+    ) -> SourceKind:
+        if path.suffix.lower() == ".log":
+            return SourceKind.LOG
+        if not text_summary:
+            return SourceKind.UNKNOWN
+        if text_summary.error_count or text_summary.warning_count or text_summary.info_count:
+            return SourceKind.LOG
+        return SourceKind.UNKNOWN

@@ -120,7 +120,7 @@ Intended initial file layout:
 
 - Expand executable tools beyond source availability into deeper log summaries and time-window filtering.
 - Improve hypothesis ranking with evidence density and topology/entity relationships.
-- Add deeper log summaries and message-template extraction.
+- Add message-template extraction and burst detection for logs.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -144,3 +144,5 @@ Intended initial file layout:
 - Current place: 10 unittest tests pass. Next work should infer source categories from schema roles and start building entity extraction beyond CSV headers.
 - `2026-04-28 03:20:00 -0700` | `uncommitted` | `Codex` | Added schema-inferred source kinds and initial entity extraction from metric observations.
 - Current place: 11 unittest tests pass. Next work should add log/message summarization and use extracted entities to strengthen hypothesis ranking.
+- `2026-04-28 03:22:00 -0700` | `uncommitted` | `Codex` | Added text/log signal summaries with error, warning, and info counts plus evidence generation.
+- Current place: 12 unittest tests pass. Next work should extract message templates and use entity/time-aligned evidence density to rank hypotheses.
