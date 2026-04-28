@@ -2,13 +2,16 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from src.agent import RCAAgent
 from src.intake import DataCataloger
+from src.anomalies import AnomalyCandidateBuilder
 from src.evidence import EvidenceBuilder
 from src.models import SourceKind
 from src.profiler import DataProfiler
 from src.reports import ReportWriter
 from src.schema import SchemaProfiler
 from src.tools import InvestigationToolFactory, ToolExecutionRequest
+from src.logger import AppLogger
 
 
 class PipelineTest(unittest.TestCase):
@@ -139,6 +142,58 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(json_path.exists())
             self.assertTrue(markdown_path.exists())
             self.assertIn("Test summary.", markdown_path.read_text(encoding="utf-8"))
+
+    def test_anomaly_candidate_builder_ranks_numeric_spread(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "metrics.csv").write_text("time,cpu\n1,10\n2,90\n", encoding="utf-8")
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=5)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            builder = AnomalyCandidateBuilder()
+            builder.setup()
+            candidates = builder.from_schema_profiles(profiles)
+
+            self.assertTrue(candidates)
+            self.assertEqual(candidates[0].signal_name, "cpu")
+
+    def test_rca_agent_runs_full_deterministic_workflow(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            data_root = tmp_path / "data"
+            data_root.mkdir()
+            (data_root / "metrics.csv").write_text(
+                "timestamp,service,cpu\n1,api,10\n2,api,90\n",
+                encoding="utf-8",
+            )
+            logger = AppLogger(level="CRITICAL")
+            logger.setup()
+            agent = RCAAgent(
+                data_root=data_root,
+                output_path=tmp_path / "report.json",
+                markdown_output_path=tmp_path / "report.md",
+                impacted_sli="latency",
+                anomaly_start="2",
+                customer_context="unit test",
+                max_schema_files=10,
+                max_schema_lines=5,
+                llm_provider="none",
+                llm_model="openai:gpt-4.1-mini",
+                openai_api_key="",
+                logger=logger,
+            )
+            agent.setup()
+            report = agent.run()
+
+            self.assertEqual(report.impacted_sli, "latency")
+            self.assertTrue(report.evidence)
+            self.assertTrue(report.anomaly_candidates)
+            self.assertTrue((tmp_path / "report.json").exists())
+            self.assertTrue((tmp_path / "report.md").exists())
 
 
 if __name__ == "__main__":

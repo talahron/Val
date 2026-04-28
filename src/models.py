@@ -87,6 +87,14 @@ class Evidence(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class AnomalyCandidate(BaseModel):
+    candidate_id: str
+    source_path: Path
+    signal_name: str
+    score: float = Field(ge=0.0)
+    summary: str
+
+
 class InvestigationRequest(BaseModel):
     data_root: Path
     impacted_sli: str | None = None
@@ -108,6 +116,7 @@ class RCAReport(BaseModel):
     affected_entities: list[Entity] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     schema_profiles: list[SourceSchemaProfile] = Field(default_factory=list)
+    anomaly_candidates: list[AnomalyCandidate] = Field(default_factory=list)
     generated_tools: list[InvestigationToolSpec] = Field(default_factory=list)
     tool_validations: list[ToolValidationResult] = Field(default_factory=list)
     alternative_hypotheses: list[str] = Field(default_factory=list)

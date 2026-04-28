@@ -72,6 +72,7 @@ Current repository state:
 - `src/settings.py` contains Pydantic Settings loaded from `.env`.
 - `src/logger.py` contains the centralized application logger.
 - `src/models.py` contains all Pydantic data structures currently used by the app.
+- `src/anomalies.py` builds early anomaly candidates from numeric sample summaries.
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
@@ -115,8 +116,8 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Expand executable tools beyond source availability into deeper log summaries and early anomaly candidates.
-- Add automated tests for full agent report generation and report writing.
+- Expand executable tools beyond source availability into deeper log summaries and time-window filtering.
+- Use anomaly candidates to create initial hypotheses and rank likely affected signals.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -132,3 +133,5 @@ Intended initial file layout:
 - Current place: Schema profiling is local and tests pass. Next work should turn schema profiles into timestamp-aware evidence and lightweight metric/log summaries.
 - `2026-04-28 01:55:00 -0700` | `uncommitted` | `Codex` | Added schema-derived evidence, timestamp examples, numeric sample summaries, and Markdown report output.
 - Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should build early anomaly candidates from numeric summaries and user-provided SLI/time windows.
+- `2026-04-28 02:00:00 -0700` | `uncommitted` | `Codex` | Added early numeric-spread anomaly candidates and full deterministic RCA agent workflow coverage.
+- Current place: 8 unittest tests pass. Local branch has commits ahead of origin because `git push origin main` is timing out after commit creation.

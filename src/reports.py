@@ -34,6 +34,9 @@ class ReportWriter:
             "## Evidence",
             *self._evidence_lines(report),
             "",
+            "## Anomaly Candidates",
+            *self._anomaly_lines(report),
+            "",
             "## Generated Tools",
             *self._tool_lines(report),
             "",
@@ -58,4 +61,12 @@ class ReportWriter:
         return [
             f"- `{tool.name}` ({tool.source_kind.value}): {tool.purpose}"
             for tool in report.generated_tools
+        ]
+
+    def _anomaly_lines(self, report: RCAReport) -> list[str]:
+        if not report.anomaly_candidates:
+            return ["- No anomaly candidates identified."]
+        return [
+            f"- `{candidate.signal_name}` score={candidate.score:.3f}: {candidate.summary}"
+            for candidate in report.anomaly_candidates[:20]
         ]

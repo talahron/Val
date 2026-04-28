@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 
+from src.anomalies import AnomalyCandidateBuilder
 from src.intake import DataCataloger
 from src.logger import AppLogger
 from src.models import AgentResponse, InvestigationRequest, RCAReport, ToolExecutionRequest
@@ -43,6 +44,7 @@ class RCAAgent:
         self.profiler = DataProfiler()
         self.schema_profiler = SchemaProfiler(max_files=max_schema_files, max_lines=max_schema_lines)
         self.evidence_builder = EvidenceBuilder()
+        self.anomaly_builder = AnomalyCandidateBuilder()
         self.tool_factory = InvestigationToolFactory()
         self.report_writer = ReportWriter(
             output_path=output_path,
@@ -55,6 +57,7 @@ class RCAAgent:
         self.profiler.setup()
         self.schema_profiler.setup()
         self.evidence_builder.setup()
+        self.anomaly_builder.setup()
         self.tool_factory.setup()
         self.report_writer.setup()
         self._setup_llm_agent()
@@ -86,6 +89,7 @@ class RCAAgent:
             for evidence in execution_result.evidence
         ]
         evidence.extend(self.evidence_builder.from_schema_profiles(schema_profiles))
+        anomaly_candidates = self.anomaly_builder.from_schema_profiles(schema_profiles)
         report = RCAReport(
             executive_summary=(
                 "Initial RCA workspace profile completed. "
@@ -98,6 +102,7 @@ class RCAAgent:
             suspected_root_cause=None,
             evidence=evidence,
             schema_profiles=schema_profiles,
+            anomaly_candidates=anomaly_candidates,
             generated_tools=tool_specs,
             tool_validations=validation_results,
             confidence=0.0,
