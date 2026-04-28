@@ -73,6 +73,7 @@ Current repository state:
 - `src/logger.py` contains the centralized application logger.
 - `src/models.py` contains all Pydantic data structures currently used by the app.
 - `src/anomalies.py` builds early anomaly candidates from numeric sample summaries.
+- `src/entities.py` extracts initial entities from observed entity fields and links them to source files and metrics.
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
@@ -118,7 +119,8 @@ Intended initial file layout:
 ## Current Task List
 
 - Expand executable tools beyond source availability into deeper log summaries and time-window filtering.
-- Improve hypothesis ranking with evidence density and richer source-type classification based on inferred schemas.
+- Improve hypothesis ranking with evidence density and topology/entity relationships.
+- Add deeper log summaries and message-template extraction.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -140,3 +142,5 @@ Intended initial file layout:
 - Current place: 9 unittest tests pass. Next work should make hypotheses time-window aware and add richer source-type classification based on inferred schemas.
 - `2026-04-28 03:17:00 -0700` | `uncommitted` | `Codex` | Added numeric observations with timestamp/entity propagation and time-aligned anomaly candidate scoring.
 - Current place: 10 unittest tests pass. Next work should infer source categories from schema roles and start building entity extraction beyond CSV headers.
+- `2026-04-28 03:20:00 -0700` | `uncommitted` | `Codex` | Added schema-inferred source kinds and initial entity extraction from metric observations.
+- Current place: 11 unittest tests pass. Next work should add log/message summarization and use extracted entities to strengthen hypothesis ranking.

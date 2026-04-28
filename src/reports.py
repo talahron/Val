@@ -31,6 +31,9 @@ class ReportWriter:
             "## Data Gaps",
             *self._bullet_list(report.data_gaps),
             "",
+            "## Affected Entities",
+            *self._entity_lines(report),
+            "",
             "## Evidence",
             *self._evidence_lines(report),
             "",
@@ -56,6 +59,17 @@ class ReportWriter:
         return [
             f"- `{item.signal_type}` from `{item.source_path}`: {item.summary}"
             for item in report.evidence[:50]
+        ]
+
+    def _entity_lines(self, report: RCAReport) -> list[str]:
+        if not report.affected_entities:
+            return ["- No entities identified yet."]
+        return [
+            (
+                f"- `{entity.entity_id}` metrics={', '.join(entity.observed_metric_names) or 'none'} "
+                f"sources={len(entity.related_source_paths)}"
+            )
+            for entity in report.affected_entities
         ]
 
     def _tool_lines(self, report: RCAReport) -> list[str]:

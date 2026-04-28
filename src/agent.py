@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from src.anomalies import AnomalyCandidateBuilder
+from src.entities import EntityExtractor
 from src.hypotheses import HypothesisBuilder
 from src.intake import DataCataloger
 from src.logger import AppLogger
@@ -48,6 +49,7 @@ class RCAAgent:
         self.schema_profiler = SchemaProfiler(max_files=max_schema_files, max_lines=max_schema_lines)
         self.evidence_builder = EvidenceBuilder()
         self.anomaly_builder = AnomalyCandidateBuilder()
+        self.entity_extractor = EntityExtractor()
         self.hypothesis_builder = HypothesisBuilder(max_hypotheses=max_hypotheses)
         self.tool_factory = InvestigationToolFactory()
         self.report_writer = ReportWriter(
@@ -62,6 +64,7 @@ class RCAAgent:
         self.schema_profiler.setup()
         self.evidence_builder.setup()
         self.anomaly_builder.setup()
+        self.entity_extractor.setup()
         self.hypothesis_builder.setup()
         self.tool_factory.setup()
         self.report_writer.setup()
@@ -94,6 +97,7 @@ class RCAAgent:
             for evidence in execution_result.evidence
         ]
         evidence.extend(self.evidence_builder.from_schema_profiles(schema_profiles))
+        entities = self.entity_extractor.from_schema_profiles(schema_profiles)
         anomaly_candidates = self.anomaly_builder.from_schema_profiles(
             schema_profiles=schema_profiles,
             anomaly_start=request.anomaly_start,
@@ -112,6 +116,7 @@ class RCAAgent:
             ),
             impacted_sli=request.impacted_sli,
             suspected_root_cause=None,
+            affected_entities=entities,
             evidence=evidence,
             schema_profiles=schema_profiles,
             anomaly_candidates=anomaly_candidates,

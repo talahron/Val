@@ -5,6 +5,7 @@ import unittest
 from src.agent import RCAAgent
 from src.intake import DataCataloger
 from src.anomalies import AnomalyCandidateBuilder
+from src.entities import EntityExtractor
 from src.hypotheses import HypothesisBuilder
 from src.evidence import EvidenceBuilder
 from src.models import SourceKind
@@ -222,6 +223,7 @@ class PipelineTest(unittest.TestCase):
 
             self.assertEqual(report.impacted_sli, "latency")
             self.assertTrue(report.evidence)
+            self.assertTrue(report.affected_entities)
             self.assertTrue(report.anomaly_candidates)
             self.assertTrue(report.anomaly_candidates[0].time_aligned)
             self.assertTrue(report.hypotheses)
@@ -253,6 +255,29 @@ class PipelineTest(unittest.TestCase):
 
             self.assertEqual(len(hypotheses), 1)
             self.assertIn("latency", hypotheses[0].title)
+
+    def test_entity_extractor_uses_entity_observations(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "metrics.csv").write_text(
+                "timestamp,service,cpu,memory\n1,api,10,50\n2,api,90,60\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=5)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            extractor = EntityExtractor()
+            extractor.setup()
+            entities = extractor.from_schema_profiles(profiles)
+
+            self.assertEqual(len(entities), 1)
+            self.assertEqual(entities[0].entity_id, "api")
+            self.assertIn("cpu", entities[0].observed_metric_names)
+            self.assertIn("memory", entities[0].observed_metric_names)
 
 
 if __name__ == "__main__":
