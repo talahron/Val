@@ -71,7 +71,7 @@ Current repository state:
 - `main.py` is the orchestration entry point and the only file importing `src/settings.py`.
 - `src/settings.py` contains Pydantic Settings loaded from `.env`.
 - `src/logger.py` contains the centralized application logger.
-- `src/models.py` contains all Pydantic data structures currently used by the app.
+- `src/models.py` contains all Pydantic data structures currently used by the app, including structured extraction and delimited-row models.
 - `src/anomalies.py` builds early anomaly candidates from numeric sample summaries.
 - `src/anomalies.py` aligns numeric observations to the anomaly time by exact timestamp or minute-level timestamp prefix.
 - `src/entities.py` extracts initial entities from observed entity fields and links them to source files and metrics.
@@ -80,7 +80,7 @@ Current repository state:
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
 - `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, and repeated-template bursts.
 - `src/hypotheses.py` ranks anomaly candidates with time/entity/supporting-evidence context and records supporting evidence IDs on each hypothesis.
-- `src/tools.py` generates, validates, and executes read-only investigation tool specs from the data profile, including focused line matches by anomaly time window or entity and first-pass structured extractions when readable source text is available.
+- `src/tools.py` generates, validates, and executes read-only investigation tool specs from the data profile, including focused line matches by anomaly time window or entity, readable-line structured extractions, and delimited metric/event/trace/config row extraction.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
 - `src/agent.py` wraps the RCA workflow, records bounded deterministic generate-validate-execute-update cycles, scopes cycle evidence IDs, and prepares optional Pydantic AI integration.
 - `.gitignore` protects `.env`, `SA.json`, caches, virtual environments, and system files.
@@ -119,7 +119,8 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Expand structured extraction beyond first-pass readable-line matches into source-specific metric, event, trace, config, and topology extraction models.
+- Feed structured extraction records into evidence generation, hypothesis ranking, and report output.
+- Add topology extraction and relationship modeling beyond flat entity IDs.
 - Improve hypothesis ranking with topology/entity relationships beyond flat entity IDs.
 - Turn bounded deterministic investigation cycles into an LLM/RLM-controlled loop with tool proposal validation.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
@@ -156,5 +157,7 @@ Intended initial file layout:
 - Current place: 16 unittest tests pass. Next work should add structured extraction outputs per source type and then build the first deterministic generate-validate-execute loop skeleton.
 - `2026-04-28 03:35:00 -0700` | `uncommitted` | `Codex` | Added Pydantic investigation-cycle state for the deterministic generate-validate-execute-update workflow and exposed it in reports.
 - Current place: 16 unittest tests pass. Next work should turn the deterministic cycle into a bounded LLM/RLM-controlled loop and add structured extraction outputs per source type.
-- `2026-04-28 06:55:00 -0700` | `uncommitted` | `Codex` | Added configurable bounded investigation cycles, cycle-scoped evidence IDs, and first-pass structured extraction records from focused tool execution.
+- `2026-04-28 06:55:00 -0700` | `e527b18` | `Codex` | Added configurable bounded investigation cycles, cycle-scoped evidence IDs, and first-pass structured extraction records from focused tool execution.
 - Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should deepen extraction models by source type and connect the bounded cycle to an LLM/RLM planner.
+- `2026-04-28 07:02:00 -0700` | `uncommitted` | `Codex` | Added Pydantic delimited-row extraction for focused metric/event/trace/config records, including signal name, value, entity, timestamp, and status fields.
+- Current place: 17 unittest tests pass. Next work should expose structured extractions in reports and use them as first-class evidence for RCA hypotheses.

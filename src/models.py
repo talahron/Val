@@ -228,11 +228,27 @@ class StructuredExtraction(BaseModel):
     source_path: Path
     source_kind: SourceKind
     signal_type: str
+    signal_name: str | None = None
     timestamp: str | None = None
     entity_id: str | None = None
     severity: str | None = None
+    status: str | None = None
     value: float | None = None
     text: str
+
+
+class DelimitedRow(BaseModel):
+    fieldnames: list[str]
+    values: list[str]
+
+    def value_for(self, field_name: str) -> str | None:
+        for index, candidate in enumerate(self.fieldnames):
+            if candidate == field_name and index < len(self.values):
+                return self.values[index] or None
+        return None
+
+    def as_text(self, delimiter: str) -> str:
+        return delimiter.join(self.values)
 
 
 class ToolExecutionResult(BaseModel):

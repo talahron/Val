@@ -1,9 +1,11 @@
+import csv
 from pathlib import Path
 import re
 
 from src.models import (
     CatalogProfile,
     DataCatalog,
+    DelimitedRow,
     Evidence,
     EvidenceRelation,
     InvestigationToolSpec,
@@ -201,19 +203,148 @@ class InvestigationToolFactory:
         request: ToolExecutionRequest,
     ) -> list[StructuredExtraction]:
         text = source_path.read_text(encoding="utf-8", errors="ignore")
+        delimited_extractions = self._delimited_extractions(source_path, text, request)
+        if delimited_extractions:
+            return delimited_extractions
         return [
             StructuredExtraction(
                 source_path=source_path,
                 source_kind=request.source_kind,
-                signal_type=f"{request.source_kind.value}_line_match",
+                signal_type=self._line_signal_type(request.source_kind),
                 timestamp=self._extract_timestamp(line),
-                entity_id=request.entity_id,
+                entity_id=request.entity_id or self._extract_entity(line),
                 severity=self._extract_severity(line) if request.source_kind == SourceKind.LOG else None,
+                status=self._extract_status(line),
                 text=self._shorten(line.strip()),
             )
             for line in text.splitlines()
             if self._line_matches_request(line, request)
         ][:5]
+
+    def _delimited_extractions(
+        self,
+        source_path: Path,
+        text: str,
+        request: ToolExecutionRequest,
+    ) -> list[StructuredExtraction]:
+        lines = [line for line in text.splitlines() if line.strip()]
+        if len(lines) < 2:
+            return []
+        delimiter = "\t" if "\t" in lines[0] else ","
+        if delimiter not in lines[0]:
+            return []
+        reader = csv.DictReader(lines, delimiter=delimiter)
+        if not reader.fieldnames:
+            return []
+        extractions: list[StructuredExtraction] = []
+        for row in reader:
+            delimited_row = DelimitedRow(
+                fieldnames=reader.fieldnames,
+                values=[str(row.get(field) or "") for field in reader.fieldnames],
+            )
+            row_text = delimited_row.as_text(delimiter)
+            if not self._line_matches_request(row_text, request):
+                continue
+            extractions.extend(
+                self._row_extractions(
+                    source_path=source_path,
+                    request=request,
+                    row=delimited_row,
+                    row_text=row_text,
+                )
+            )
+            if len(extractions) >= 5:
+                return extractions[:5]
+        return extractions[:5]
+
+    def _row_extractions(
+        self,
+        source_path: Path,
+        request: ToolExecutionRequest,
+        row: DelimitedRow,
+        row_text: str,
+    ) -> list[StructuredExtraction]:
+        timestamp = self._row_value_by_role(row, ("timestamp", "time", "date"))
+        entity_id = request.entity_id or self._row_value_by_role(
+            row,
+            ("service", "host", "node", "pod", "instance", "entity"),
+        )
+        status = self._row_value_by_role(row, ("status", "code", "result", "state"))
+        metric_extractions = [
+            StructuredExtraction(
+                source_path=source_path,
+                source_kind=request.source_kind,
+                signal_type=self._row_signal_type(request.source_kind),
+                signal_name=field_name,
+                timestamp=timestamp,
+                entity_id=entity_id,
+                status=status,
+                value=value,
+                text=self._shorten(row_text),
+            )
+            for field_name in row.fieldnames
+            for value in [self._float_value(row.value_for(field_name))]
+            if value is not None and not self._is_context_field(field_name)
+        ]
+        if metric_extractions:
+            return metric_extractions
+        return [
+            StructuredExtraction(
+                source_path=source_path,
+                source_kind=request.source_kind,
+                signal_type=self._row_signal_type(request.source_kind),
+                timestamp=timestamp,
+                entity_id=entity_id,
+                status=status,
+                text=self._shorten(row_text),
+            )
+        ]
+
+    def _row_value_by_role(
+        self,
+        row: DelimitedRow,
+        role_tokens: tuple[str, ...],
+    ) -> str | None:
+        for field_name in row.fieldnames:
+            normalized = field_name.lower()
+            if any(token in normalized for token in role_tokens):
+                value = row.value_for(field_name)
+                if value:
+                    return value
+        return None
+
+    def _float_value(self, value: str | None) -> float | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if re.fullmatch(r"-?\d+(?:\.\d+)?", normalized):
+            return float(normalized)
+        return None
+
+    def _is_context_field(self, field_name: str) -> bool:
+        normalized = field_name.lower()
+        return any(
+            token in normalized
+            for token in ("time", "date", "service", "host", "node", "pod", "instance", "entity", "status", "code")
+        )
+
+    def _row_signal_type(self, source_kind: SourceKind) -> str:
+        if source_kind == SourceKind.METRIC:
+            return "metric_sample"
+        if source_kind == SourceKind.EVENT:
+            return "event_record"
+        if source_kind == SourceKind.TRACE:
+            return "trace_span"
+        if source_kind == SourceKind.CONFIGURATION:
+            return "configuration_record"
+        return f"{source_kind.value}_record"
+
+    def _line_signal_type(self, source_kind: SourceKind) -> str:
+        if source_kind == SourceKind.LOG:
+            return "log_message"
+        return f"{source_kind.value}_line_match"
 
     def _extract_timestamp(self, line: str) -> str | None:
         match = re.search(r"\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\b", line)
@@ -229,6 +360,18 @@ class InvestigationToolFactory:
             return "warning"
         if any(token in normalized for token in ("info", "debug", "notice")):
             return "info"
+        return None
+
+    def _extract_entity(self, line: str) -> str | None:
+        match = re.search(r"\b(?:service|host|node|pod|instance|entity)[=:]\s*([A-Za-z0-9_.:-]+)", line)
+        if match:
+            return match.group(1)
+        return None
+
+    def _extract_status(self, line: str) -> str | None:
+        match = re.search(r"\b(?:status|code|result|state)[=:]\s*([A-Za-z0-9_.:-]+)", line, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
         return None
 
     def _line_matches_request(self, line: str, request: ToolExecutionRequest) -> bool:

@@ -115,6 +115,45 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(result.extractions[0].severity, "error")
             self.assertEqual(result.extractions[0].timestamp, "2026-01-01T10:00:10Z")
 
+    def test_tool_execution_extracts_metric_rows(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "metrics").mkdir()
+            (tmp_path / "metrics" / "cpu.csv").write_text(
+                "timestamp,service,cpu,status_code\n"
+                "2026-01-01T10:00:00Z,api,91,500\n"
+                "2026-01-01T10:01:00Z,api,20,200\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+
+            profiler = DataProfiler()
+            profiler.setup()
+            factory = InvestigationToolFactory()
+            factory.setup()
+            spec = next(
+                item
+                for item in factory.generate_specs(profiler.profile(catalog))
+                if item.source_kind == SourceKind.METRIC
+            )
+            result = factory.execute_spec(
+                spec=spec,
+                catalog=catalog,
+                request=ToolExecutionRequest(
+                    tool_name=spec.name,
+                    source_kind=SourceKind.METRIC,
+                    time_window="2026-01-01T10:00",
+                ),
+            )
+
+            self.assertEqual(result.extractions[0].signal_type, "metric_sample")
+            self.assertEqual(result.extractions[0].signal_name, "cpu")
+            self.assertEqual(result.extractions[0].entity_id, "api")
+            self.assertEqual(result.extractions[0].status, "500")
+            self.assertEqual(result.extractions[0].value, 91.0)
+
     def test_schema_profiler_infers_csv_field_roles(self) -> None:
         with TemporaryDirectory() as raw_path:
             tmp_path = Path(raw_path)
