@@ -2,7 +2,7 @@ import csv
 import json
 from pathlib import Path
 
-from src.models import DataCatalog, FieldProfile, SourceSchemaProfile
+from src.models import DataCatalog, FieldProfile, NumericFieldSummary, SourceSchemaProfile
 
 
 class SchemaProfiler:
@@ -38,11 +38,16 @@ class SchemaProfiler:
     def _profile_csv(self, path: Path) -> SourceSchemaProfile:
         lines = self._read_sample_lines(path)
         fields: list[FieldProfile] = []
+        timestamp_examples: list[str] = []
+        numeric_summaries: list[NumericFieldSummary] = []
         if lines:
             dialect = csv.Sniffer().sniff("\n".join(lines))
-            reader = csv.reader(lines, dialect)
-            header = next(reader, [])
+            reader = list(csv.reader(lines, dialect))
+            header = reader[0] if reader else []
+            data_rows = reader[1:]
             fields = [FieldProfile(name=name, inferred_role=self._infer_field_role(name)) for name in header]
+            timestamp_examples = self._extract_timestamp_examples(fields, data_rows)
+            numeric_summaries = self._summarize_numeric_fields(header, data_rows)
             delimiter = dialect.delimiter
         else:
             delimiter = None
@@ -53,11 +58,15 @@ class SchemaProfiler:
             sample_line_count=len(lines),
             delimiter=delimiter,
             fields=fields,
+            timestamp_examples=timestamp_examples,
+            numeric_summaries=numeric_summaries,
         )
 
     def _profile_json(self, path: Path) -> SourceSchemaProfile:
         lines = self._read_sample_lines(path)
         fields: list[FieldProfile] = []
+        timestamp_examples: list[str] = []
+        numeric_summaries: list[NumericFieldSummary] = []
         if lines:
             parsed = json.loads(lines[0])
             if isinstance(parsed, dict):
@@ -65,12 +74,20 @@ class SchemaProfiler:
                     FieldProfile(name=str(name), inferred_role=self._infer_field_role(str(name)))
                     for name in parsed.keys()
                 ]
+                timestamp_examples = [
+                    str(parsed[field.name])
+                    for field in fields
+                    if field.inferred_role == "timestamp" and field.name in parsed
+                ][:3]
+                numeric_summaries = self._summarize_json_numeric_fields(parsed)
         return SourceSchemaProfile(
             source_path=path,
             suffix=path.suffix.lower(),
             is_text_readable=True,
             sample_line_count=len(lines),
             fields=fields,
+            timestamp_examples=timestamp_examples,
+            numeric_summaries=numeric_summaries,
         )
 
     def _profile_text(self, path: Path) -> SourceSchemaProfile:
@@ -99,3 +116,69 @@ class SchemaProfiler:
         if any(token in normalized for token in ("cpu", "memory", "cost", "rate", "usage")):
             return "metric"
         return "unknown"
+
+    def _extract_timestamp_examples(
+        self,
+        fields: list[FieldProfile],
+        data_rows: list[list[str]],
+    ) -> list[str]:
+        timestamp_indexes = [
+            index for index, field in enumerate(fields) if field.inferred_role == "timestamp"
+        ]
+        examples: list[str] = []
+        for row in data_rows:
+            for index in timestamp_indexes:
+                if index < len(row) and row[index]:
+                    examples.append(row[index])
+        return examples[:3]
+
+    def _summarize_numeric_fields(
+        self,
+        header: list[str],
+        data_rows: list[list[str]],
+    ) -> list[NumericFieldSummary]:
+        summaries: list[NumericFieldSummary] = []
+        for index, field_name in enumerate(header):
+            values = [
+                float(row[index])
+                for row in data_rows
+                if index < len(row) and self._is_float(row[index])
+            ]
+            if not values:
+                continue
+            summaries.append(
+                NumericFieldSummary(
+                    name=field_name,
+                    count=len(values),
+                    minimum=min(values),
+                    maximum=max(values),
+                    average=sum(values) / len(values),
+                )
+            )
+        return summaries
+
+    def _summarize_json_numeric_fields(self, parsed: dict[object, object]) -> list[NumericFieldSummary]:
+        summaries: list[NumericFieldSummary] = []
+        for key, value in parsed.items():
+            if isinstance(value, int | float):
+                numeric_value = float(value)
+                summaries.append(
+                    NumericFieldSummary(
+                        name=str(key),
+                        count=1,
+                        minimum=numeric_value,
+                        maximum=numeric_value,
+                        average=numeric_value,
+                    )
+                )
+        return summaries
+
+    def _is_float(self, value: str) -> bool:
+        cleaned = value.strip()
+        if not cleaned:
+            return False
+        try:
+            float(cleaned)
+        except ValueError:
+            return False
+        return True

@@ -4,6 +4,7 @@ from typing import Any
 from src.intake import DataCataloger
 from src.logger import AppLogger
 from src.models import AgentResponse, InvestigationRequest, RCAReport, ToolExecutionRequest
+from src.evidence import EvidenceBuilder
 from src.profiler import DataProfiler
 from src.reports import ReportWriter
 from src.schema import SchemaProfiler
@@ -15,6 +16,7 @@ class RCAAgent:
         self,
         data_root: Path,
         output_path: Path,
+        markdown_output_path: Path,
         impacted_sli: str | None,
         anomaly_start: str | None,
         customer_context: str | None,
@@ -27,6 +29,7 @@ class RCAAgent:
     ) -> None:
         self.data_root = data_root
         self.output_path = output_path
+        self.markdown_output_path = markdown_output_path
         self.impacted_sli = impacted_sli
         self.anomaly_start = anomaly_start
         self.customer_context = customer_context
@@ -39,14 +42,19 @@ class RCAAgent:
         self.cataloger = DataCataloger(data_root=data_root)
         self.profiler = DataProfiler()
         self.schema_profiler = SchemaProfiler(max_files=max_schema_files, max_lines=max_schema_lines)
+        self.evidence_builder = EvidenceBuilder()
         self.tool_factory = InvestigationToolFactory()
-        self.report_writer = ReportWriter(output_path=output_path)
+        self.report_writer = ReportWriter(
+            output_path=output_path,
+            markdown_output_path=markdown_output_path,
+        )
         self._pydantic_agent: Any | None = None
 
     def setup(self) -> None:
         self.cataloger.setup()
         self.profiler.setup()
         self.schema_profiler.setup()
+        self.evidence_builder.setup()
         self.tool_factory.setup()
         self.report_writer.setup()
         self._setup_llm_agent()
@@ -77,6 +85,7 @@ class RCAAgent:
             for execution_result in execution_results
             for evidence in execution_result.evidence
         ]
+        evidence.extend(self.evidence_builder.from_schema_profiles(schema_profiles))
         report = RCAReport(
             executive_summary=(
                 "Initial RCA workspace profile completed. "
@@ -95,8 +104,10 @@ class RCAAgent:
             data_gaps=self._build_data_gaps(request),
         )
         report_path = self.report_writer.write_json(report)
+        markdown_report_path = self.report_writer.write_markdown(report)
         self.logger.info(report.model_dump_json(indent=2))
         self.logger.info(f"RCA report written to {report_path}")
+        self.logger.info(f"RCA Markdown report written to {markdown_report_path}")
         return report
 
     def _build_data_gaps(self, request: InvestigationRequest) -> list[str]:

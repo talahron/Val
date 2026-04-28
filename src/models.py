@@ -34,6 +34,14 @@ class FieldProfile(BaseModel):
     inferred_role: str
 
 
+class NumericFieldSummary(BaseModel):
+    name: str
+    count: int
+    minimum: float
+    maximum: float
+    average: float
+
+
 class SourceSchemaProfile(BaseModel):
     source_path: Path
     suffix: str
@@ -41,6 +49,8 @@ class SourceSchemaProfile(BaseModel):
     sample_line_count: int
     delimiter: str | None = None
     fields: list[FieldProfile] = Field(default_factory=list)
+    timestamp_examples: list[str] = Field(default_factory=list)
+    numeric_summaries: list[NumericFieldSummary] = Field(default_factory=list)
 
 
 class FileTypeSummary(BaseModel):

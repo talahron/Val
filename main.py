@@ -13,6 +13,7 @@ def main() -> None:
     agent = RCAAgent(
         data_root=Path(config.DATA_ROOT),
         output_path=Path(config.OUTPUT_PATH),
+        markdown_output_path=Path(config.MARKDOWN_OUTPUT_PATH),
         impacted_sli=config.IMPACTED_SLI or None,
         anomaly_start=config.ANOMALY_START or None,
         customer_context=config.CUSTOMER_CONTEXT or None,
