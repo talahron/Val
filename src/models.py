@@ -226,6 +226,7 @@ class ToolExecutionRequest(BaseModel):
 
 
 class StructuredExtraction(BaseModel):
+    extraction_id: str
     source_path: Path
     source_kind: SourceKind
     signal_type: str

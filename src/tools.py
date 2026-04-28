@@ -208,6 +208,7 @@ class InvestigationToolFactory:
             return delimited_extractions
         return [
             StructuredExtraction(
+                extraction_id=f"{request.source_kind.value}:{self._safe_id(source_path)}:line:{line_index}",
                 source_path=source_path,
                 source_kind=request.source_kind,
                 signal_type=self._line_signal_type(request.source_kind),
@@ -217,7 +218,7 @@ class InvestigationToolFactory:
                 status=self._extract_status(line),
                 text=self._shorten(line.strip()),
             )
-            for line in text.splitlines()
+            for line_index, line in enumerate(text.splitlines(), start=1)
             if self._line_matches_request(line, request)
         ][:5]
 
@@ -237,7 +238,7 @@ class InvestigationToolFactory:
         if not reader.fieldnames:
             return []
         extractions: list[StructuredExtraction] = []
-        for row in reader:
+        for row_index, row in enumerate(reader, start=1):
             delimited_row = DelimitedRow(
                 fieldnames=reader.fieldnames,
                 values=[str(row.get(field) or "") for field in reader.fieldnames],
@@ -250,6 +251,7 @@ class InvestigationToolFactory:
                     source_path=source_path,
                     request=request,
                     row=delimited_row,
+                    row_index=row_index,
                     row_text=row_text,
                 )
             )
@@ -262,6 +264,7 @@ class InvestigationToolFactory:
         source_path: Path,
         request: ToolExecutionRequest,
         row: DelimitedRow,
+        row_index: int,
         row_text: str,
     ) -> list[StructuredExtraction]:
         timestamp = self._row_value_by_role(row, ("timestamp", "time", "date"))
@@ -272,6 +275,10 @@ class InvestigationToolFactory:
         status = self._row_value_by_role(row, ("status", "code", "result", "state"))
         metric_extractions = [
             StructuredExtraction(
+                extraction_id=(
+                    f"{request.source_kind.value}:{self._safe_id(source_path)}:"
+                    f"row:{row_index}:field:{self._safe_id_text(field_name)}"
+                ),
                 source_path=source_path,
                 source_kind=request.source_kind,
                 signal_type=self._row_signal_type(request.source_kind),
@@ -290,6 +297,7 @@ class InvestigationToolFactory:
             return metric_extractions
         return [
             StructuredExtraction(
+                extraction_id=f"{request.source_kind.value}:{self._safe_id(source_path)}:row:{row_index}",
                 source_path=source_path,
                 source_kind=request.source_kind,
                 signal_type=self._row_signal_type(request.source_kind),
@@ -388,3 +396,9 @@ class InvestigationToolFactory:
         if len(value) <= 180:
             return value
         return value[:177] + "..."
+
+    def _safe_id(self, path: Path) -> str:
+        return self._safe_id_text(path.as_posix())
+
+    def _safe_id_text(self, value: str) -> str:
+        return re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip()).strip("_") or "unknown"

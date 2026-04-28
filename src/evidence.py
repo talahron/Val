@@ -25,7 +25,7 @@ class EvidenceBuilder:
 
         return [
             Evidence(
-                evidence_id=f"extraction:{index}:{self._safe_id(extraction.source_path)}",
+                evidence_id=f"extraction:{extraction.extraction_id}",
                 source_path=extraction.source_path,
                 entity_id=extraction.entity_id,
                 signal_type=f"{extraction.signal_type}_extracted",
@@ -33,7 +33,7 @@ class EvidenceBuilder:
                 relation=EvidenceRelation.SUPPORTS,
                 confidence=self._extraction_confidence(extraction),
             )
-            for index, extraction in enumerate(extractions, start=1)
+            for extraction in extractions
         ]
 
     def _build_profile_evidence(self, profile: SourceSchemaProfile) -> list[Evidence]:
@@ -103,7 +103,8 @@ class EvidenceBuilder:
 
     def _extraction_summary(self, extraction: StructuredExtraction) -> str:
         parts = [
-            f"Extracted {extraction.signal_type} from {extraction.source_path.as_posix()}"
+            f"Extracted {extraction.signal_type} from {extraction.source_path.as_posix()}",
+            f"extraction_id={extraction.extraction_id}",
         ]
         if extraction.signal_name:
             parts.append(f"signal={extraction.signal_name}")

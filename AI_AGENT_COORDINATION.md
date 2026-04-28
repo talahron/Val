@@ -71,14 +71,14 @@ Current repository state:
 - `main.py` is the orchestration entry point and the only file importing `src/settings.py`.
 - `src/settings.py` contains Pydantic Settings loaded from `.env`.
 - `src/logger.py` contains the centralized application logger.
-- `src/models.py` contains all Pydantic data structures currently used by the app, including structured extraction and delimited-row models.
+- `src/models.py` contains all Pydantic data structures currently used by the app, including structured extraction records with stable trace IDs and delimited-row models.
 - `src/anomalies.py` builds early anomaly candidates from numeric sample summaries.
 - `src/anomalies.py` aligns numeric observations to the anomaly time by exact timestamp or minute-level timestamp prefix.
 - `src/entities.py` extracts initial entities from observed entity fields and links them to source files and metrics.
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
-- `src/evidence.py` converts schema profiles and structured tool extractions into evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, repeated-template bursts, and focused extracted records.
+- `src/evidence.py` converts schema profiles and structured tool extractions into evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, repeated-template bursts, focused extracted records, and extraction-linked evidence IDs.
 - `src/hypotheses.py` ranks anomaly candidates with time/entity/supporting-evidence context and records supporting evidence IDs on each hypothesis.
 - `src/tools.py` generates, validates, and executes read-only investigation tool specs from the schema-enriched data profile, including focused line matches by anomaly time window or entity, readable-line structured extractions, and delimited metric/event/trace/config row extraction.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts, including structured extraction summaries.
@@ -119,7 +119,6 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Add evidence-to-extraction traceability IDs so every extracted record can be followed from source line/row to hypothesis support.
 - Add topology extraction and relationship modeling beyond flat entity IDs.
 - Improve hypothesis ranking with topology/entity relationships beyond flat entity IDs.
 - Turn bounded deterministic investigation cycles into an LLM/RLM-controlled loop with tool proposal validation.
@@ -159,7 +158,9 @@ Intended initial file layout:
 - Current place: 16 unittest tests pass. Next work should turn the deterministic cycle into a bounded LLM/RLM-controlled loop and add structured extraction outputs per source type.
 - `2026-04-28 06:55:00 -0700` | `e527b18` | `Codex` | Added configurable bounded investigation cycles, cycle-scoped evidence IDs, and first-pass structured extraction records from focused tool execution.
 - Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should deepen extraction models by source type and connect the bounded cycle to an LLM/RLM planner.
-- `2026-04-28 07:02:00 -0700` | `uncommitted` | `Codex` | Added Pydantic delimited-row extraction for focused metric/event/trace/config records, including signal name, value, entity, timestamp, and status fields.
+- `2026-04-28 07:02:00 -0700` | `6392c5a` | `Codex` | Added Pydantic delimited-row extraction for focused metric/event/trace/config records, including signal name, value, entity, timestamp, and status fields.
 - Current place: 17 unittest tests pass. Next work should expose structured extractions in reports and use them as first-class evidence for RCA hypotheses.
-- `2026-04-28 07:06:00 -0700` | `uncommitted` | `Codex` | Connected structured extractions into RCA reports and supporting evidence, and enriched tool generation with schema-inferred source kinds.
+- `2026-04-28 07:06:00 -0700` | `1d45d63` | `Codex` | Connected structured extractions into RCA reports and supporting evidence, and enriched tool generation with schema-inferred source kinds.
 - Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should add explicit extraction/evidence trace IDs and topology relationships.
+- `2026-04-28 07:51:00 -0700` | `uncommitted` | `Codex` | Added stable structured-extraction trace IDs, cycle-scoped extraction IDs, and extraction-linked evidence IDs.
+- Current place: 17 unittest tests pass. Next work should begin topology extraction and relationship-aware hypothesis scoring.

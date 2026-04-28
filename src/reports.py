@@ -83,7 +83,7 @@ class ReportWriter:
             return ["- No structured extractions collected."]
         return [
             (
-                f"- `{extraction.signal_type}`"
+                f"- `{extraction.extraction_id}` `{extraction.signal_type}`"
                 f"{f' `{extraction.signal_name}`' if extraction.signal_name else ''}"
                 f" from `{extraction.source_path}`"
                 f"{f' entity={extraction.entity_id}' if extraction.entity_id else ''}"

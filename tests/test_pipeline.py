@@ -112,6 +112,7 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(result.evidence[0].signal_type, "log_focused_match")
             self.assertEqual(result.evidence[0].relation, EvidenceRelation.SUPPORTS)
             self.assertIn("checkout failed", result.evidence[0].summary)
+            self.assertIn("line:2", result.extractions[0].extraction_id)
             self.assertEqual(result.extractions[0].severity, "error")
             self.assertEqual(result.extractions[0].timestamp, "2026-01-01T10:00:10Z")
 
@@ -149,6 +150,7 @@ class PipelineTest(unittest.TestCase):
             )
 
             self.assertEqual(result.extractions[0].signal_type, "metric_sample")
+            self.assertIn("row:1:field:cpu", result.extractions[0].extraction_id)
             self.assertEqual(result.extractions[0].signal_name, "cpu")
             self.assertEqual(result.extractions[0].entity_id, "api")
             self.assertEqual(result.extractions[0].status, "500")
@@ -307,10 +309,15 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(report.anomaly_candidates[0].time_aligned)
             self.assertTrue(report.hypotheses)
             self.assertTrue(report.structured_extractions)
+            self.assertTrue(report.structured_extractions[0].extraction_id.startswith("cycle:1:"))
             self.assertEqual(report.structured_extractions[0].signal_name, "cpu")
             self.assertIn(
                 "metric_sample_extracted",
                 {item.signal_type for item in report.evidence},
+            )
+            self.assertIn(
+                f"extraction:{report.structured_extractions[0].extraction_id}",
+                {item.evidence_id for item in report.evidence},
             )
             self.assertTrue(report.investigation_cycles)
             self.assertEqual(len(report.investigation_cycles), 2)

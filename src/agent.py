@@ -270,6 +270,10 @@ class RCAAgent:
                 "evidence": [
                     self._scope_evidence_to_cycle(cycle_index, evidence)
                     for evidence in result.evidence
+                ],
+                "extractions": [
+                    self._scope_extraction_to_cycle(cycle_index, extraction)
+                    for extraction in result.extractions
                 ]
             }
         )
@@ -281,6 +285,15 @@ class RCAAgent:
     ) -> Evidence:
         return evidence.model_copy(
             update={"evidence_id": f"cycle:{cycle_index}:{evidence.evidence_id}"}
+        )
+
+    def _scope_extraction_to_cycle(
+        self,
+        cycle_index: int,
+        extraction: StructuredExtraction,
+    ) -> StructuredExtraction:
+        return extraction.model_copy(
+            update={"extraction_id": f"cycle:{cycle_index}:{extraction.extraction_id}"}
         )
 
     def _build_investigation_cycle(
