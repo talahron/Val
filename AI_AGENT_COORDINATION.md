@@ -77,7 +77,7 @@ Current repository state:
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
-- `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, and repeated message templates.
+- `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, and repeated-template bursts.
 - `src/hypotheses.py` turns ranked anomaly candidates into initial RCA hypotheses tied to the impacted SLI when provided.
 - `src/tools.py` generates, validates, and executes initial read-only investigation tool specs from the data profile.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
@@ -120,7 +120,7 @@ Intended initial file layout:
 
 - Expand executable tools beyond source availability into time-window filtering and focused source inspection.
 - Improve hypothesis ranking with evidence density and topology/entity relationships.
-- Add burst detection for logs and repeated message templates.
+- Use log template bursts as RCA signals in hypothesis ranking.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -148,3 +148,5 @@ Intended initial file layout:
 - Current place: 12 unittest tests pass. Next work should extract message templates and use entity/time-aligned evidence density to rank hypotheses.
 - `2026-04-28 03:25:00 -0700` | `uncommitted` | `Codex` | Added repeated log message-template extraction, severity inference, and evidence generation.
 - Current place: 13 unittest tests pass. Next work should add burst detection for repeated templates and then feed template/time/entity density into hypothesis ranking.
+- `2026-04-28 03:27:00 -0700` | `uncommitted` | `Codex` | Added minute-level repeated message burst detection and supporting evidence.
+- Current place: 14 unittest tests pass. Next work should use burst evidence and time-aligned metric candidates to improve hypothesis ranking and report confidence.

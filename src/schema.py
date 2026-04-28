@@ -7,6 +7,7 @@ from pathlib import Path
 from src.models import (
     DataCatalog,
     FieldProfile,
+    MessageBurstSummary,
     MessageTemplateSummary,
     NumericFieldSummary,
     NumericObservation,
@@ -263,6 +264,7 @@ class SchemaProfiler:
             info_count=info_count,
             sample_messages=lines[:3],
             message_templates=self._extract_message_templates(lines),
+            message_bursts=self._extract_message_bursts(lines),
         )
 
     def _count_token(self, lines: list[str], tokens: tuple[str, ...]) -> int:
@@ -297,6 +299,33 @@ class SchemaProfiler:
         if any(token in normalized for token in ("info", "debug", "notice")):
             return "info"
         return "unknown"
+
+    def _extract_message_bursts(self, lines: list[str]) -> list[MessageBurstSummary]:
+        burst_counts: Counter[tuple[str, str]] = Counter()
+        severity_by_template: dict[str, str] = {}
+        for line in lines:
+            window_start = self._extract_minute_window(line)
+            if not window_start:
+                continue
+            template = self._normalize_message_template(line)
+            burst_counts[(template, window_start)] += 1
+            severity_by_template[template] = self._infer_line_severity(template)
+        return [
+            MessageBurstSummary(
+                template=template,
+                severity=severity_by_template.get(template, "unknown"),
+                window_start=window_start,
+                count=count,
+            )
+            for (template, window_start), count in burst_counts.most_common(5)
+            if count > 1
+        ]
+
+    def _extract_minute_window(self, line: str) -> str | None:
+        match = re.search(r"\b(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})", line)
+        if not match:
+            return None
+        return f"{match.group(1)}T{match.group(2)}"
 
     def _infer_text_source_kind(
         self,

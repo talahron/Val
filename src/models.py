@@ -56,12 +56,20 @@ class MessageTemplateSummary(BaseModel):
     severity: str = "unknown"
 
 
+class MessageBurstSummary(BaseModel):
+    template: str
+    severity: str
+    window_start: str
+    count: int
+
+
 class TextSignalSummary(BaseModel):
     error_count: int = 0
     warning_count: int = 0
     info_count: int = 0
     sample_messages: list[str] = Field(default_factory=list)
     message_templates: list[MessageTemplateSummary] = Field(default_factory=list)
+    message_bursts: list[MessageBurstSummary] = Field(default_factory=list)
 
 
 class SourceSchemaProfile(BaseModel):

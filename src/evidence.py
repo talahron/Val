@@ -149,4 +149,19 @@ class EvidenceBuilder:
                     confidence=0.7,
                 )
             )
+        if summary.message_bursts:
+            top_bursts = ", ".join(
+                f"{burst.template} at {burst.window_start} ({burst.count})"
+                for burst in summary.message_bursts[:3]
+            )
+            evidence.append(
+                Evidence(
+                    evidence_id=f"schema:{self._safe_id(profile.source_path)}:message_bursts",
+                    source_path=profile.source_path,
+                    signal_type="message_burst_summary",
+                    summary=f"Detected repeated message bursts: {top_bursts}.",
+                    relation=EvidenceRelation.SUPPORTS,
+                    confidence=0.75,
+                )
+            )
         return evidence

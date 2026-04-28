@@ -336,6 +336,34 @@ class PipelineTest(unittest.TestCase):
             evidence = evidence_builder.from_schema_profiles(profiles)
             self.assertIn("message_template_summary", {item.signal_type for item in evidence})
 
+    def test_schema_profiler_detects_message_bursts(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "application.log").write_text(
+                "2026-01-01T10:00:00Z ERROR request 123 failed for user 99\n"
+                "2026-01-01T10:00:10Z ERROR request 456 failed for user 42\n"
+                "2026-01-01T10:01:00Z ERROR request 789 failed for user 77\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=10)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            assert profiles[0].text_summary is not None
+            bursts = profiles[0].text_summary.message_bursts
+
+            self.assertEqual(len(bursts), 1)
+            self.assertEqual(bursts[0].count, 2)
+            self.assertEqual(bursts[0].window_start, "2026-01-01T10:00")
+
+            evidence_builder = EvidenceBuilder()
+            evidence_builder.setup()
+            evidence = evidence_builder.from_schema_profiles(profiles)
+            self.assertIn("message_burst_summary", {item.signal_type for item in evidence})
+
 
 if __name__ == "__main__":
     unittest.main()
