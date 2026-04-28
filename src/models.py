@@ -72,6 +72,13 @@ class TextSignalSummary(BaseModel):
     message_bursts: list[MessageBurstSummary] = Field(default_factory=list)
 
 
+class TopologyRelation(BaseModel):
+    source_entity_id: str
+    target_entity_id: str
+    relation_type: str
+    source_path: Path
+
+
 class SourceSchemaProfile(BaseModel):
     source_path: Path
     suffix: str
@@ -83,6 +90,7 @@ class SourceSchemaProfile(BaseModel):
     timestamp_examples: list[str] = Field(default_factory=list)
     numeric_summaries: list[NumericFieldSummary] = Field(default_factory=list)
     text_summary: TextSignalSummary | None = None
+    topology_relations: list[TopologyRelation] = Field(default_factory=list)
 
 
 class FileTypeSummary(BaseModel):

@@ -80,6 +80,7 @@ class EvidenceBuilder:
         evidence.extend(self._build_timestamp_evidence(profile))
         evidence.extend(self._build_numeric_summary_evidence(profile))
         evidence.extend(self._build_text_summary_evidence(profile))
+        evidence.extend(self._build_topology_evidence(profile))
         return evidence
 
     def _count_roles(self, fields: list[FieldProfile]) -> dict[str, int]:
@@ -212,3 +213,23 @@ class EvidenceBuilder:
                 )
             )
         return evidence
+
+    def _build_topology_evidence(self, profile: SourceSchemaProfile) -> list[Evidence]:
+        return [
+            Evidence(
+                evidence_id=(
+                    f"schema:{self._safe_id(profile.source_path)}:topology:"
+                    f"{relation.source_entity_id}:{relation.target_entity_id}"
+                ),
+                source_path=profile.source_path,
+                entity_id=relation.source_entity_id,
+                signal_type="topology_relation_detected",
+                summary=(
+                    f"Detected topology relation {relation.source_entity_id} "
+                    f"{relation.relation_type} {relation.target_entity_id}."
+                ),
+                relation=EvidenceRelation.NEUTRAL,
+                confidence=0.75,
+            )
+            for relation in profile.topology_relations
+        ]

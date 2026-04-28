@@ -14,6 +14,7 @@ from src.models import (
     SourceKind,
     SourceSchemaProfile,
     TextSignalSummary,
+    TopologyRelation,
 )
 
 
@@ -52,6 +53,7 @@ class SchemaProfiler:
         fields: list[FieldProfile] = []
         timestamp_examples: list[str] = []
         numeric_summaries: list[NumericFieldSummary] = []
+        topology_relations: list[TopologyRelation] = []
         if lines:
             dialect = csv.Sniffer().sniff("\n".join(lines))
             reader = list(csv.reader(lines, dialect))
@@ -60,6 +62,7 @@ class SchemaProfiler:
             fields = [FieldProfile(name=name, inferred_role=self._infer_field_role(name)) for name in header]
             timestamp_examples = self._extract_timestamp_examples(fields, data_rows)
             numeric_summaries = self._summarize_numeric_fields(fields, header, data_rows)
+            topology_relations = self._extract_csv_topology_relations(path, fields, data_rows)
             delimiter = dialect.delimiter
         else:
             delimiter = None
@@ -73,6 +76,7 @@ class SchemaProfiler:
             fields=fields,
             timestamp_examples=timestamp_examples,
             numeric_summaries=numeric_summaries,
+            topology_relations=topology_relations,
         )
 
     def _profile_json(self, path: Path) -> SourceSchemaProfile:
@@ -80,6 +84,7 @@ class SchemaProfiler:
         fields: list[FieldProfile] = []
         timestamp_examples: list[str] = []
         numeric_summaries: list[NumericFieldSummary] = []
+        topology_relations: list[TopologyRelation] = []
         if lines:
             parsed = json.loads(lines[0])
             if isinstance(parsed, dict):
@@ -93,6 +98,7 @@ class SchemaProfiler:
                     if field.inferred_role == "timestamp" and field.name in parsed
                 ][:3]
                 numeric_summaries = self._summarize_json_numeric_fields(fields, parsed)
+                topology_relations = self._extract_json_topology_relations(path, fields, parsed)
         return SourceSchemaProfile(
             source_path=path,
             suffix=path.suffix.lower(),
@@ -102,6 +108,7 @@ class SchemaProfiler:
             fields=fields,
             timestamp_examples=timestamp_examples,
             numeric_summaries=numeric_summaries,
+            topology_relations=topology_relations,
         )
 
     def _profile_text(self, path: Path) -> SourceSchemaProfile:
@@ -124,6 +131,8 @@ class SchemaProfiler:
         normalized = field_name.lower()
         if any(token in normalized for token in ("time", "timestamp", "date")):
             return "timestamp"
+        if any(token in normalized for token in ("parent", "upstream", "downstream", "dependency", "depends_on")):
+            return "topology"
         if any(token in normalized for token in ("host", "pod", "node", "service", "instance", "entity")):
             return "entity"
         if any(token in normalized for token in ("latency", "duration", "elapsed")):
@@ -138,6 +147,8 @@ class SchemaProfiler:
         roles = {field.inferred_role for field in fields}
         if "metric" in roles or "latency" in roles:
             return SourceKind.METRIC
+        if "topology" in roles and "entity" in roles:
+            return SourceKind.CONFIGURATION
         if "status" in roles and "timestamp" in roles:
             return SourceKind.EVENT
         if "timestamp" in roles and "entity" in roles:
@@ -223,6 +234,71 @@ class SchemaProfiler:
                     )
                 )
         return summaries
+
+    def _extract_csv_topology_relations(
+        self,
+        path: Path,
+        fields: list[FieldProfile],
+        data_rows: list[list[str]],
+    ) -> list[TopologyRelation]:
+        entity_index = self._first_role_index(fields, "entity")
+        topology_indexes = [
+            index for index, field in enumerate(fields) if field.inferred_role == "topology"
+        ]
+        if entity_index is None or not topology_indexes:
+            return []
+        relations: list[TopologyRelation] = []
+        for row in data_rows:
+            source_entity_id = self._row_value(row, entity_index)
+            if not source_entity_id:
+                continue
+            for topology_index in topology_indexes:
+                target_entity_id = self._row_value(row, topology_index)
+                if not target_entity_id:
+                    continue
+                relations.append(
+                    TopologyRelation(
+                        source_entity_id=source_entity_id,
+                        target_entity_id=target_entity_id,
+                        relation_type=self._topology_relation_type(fields[topology_index].name),
+                        source_path=path,
+                    )
+                )
+        return relations
+
+    def _extract_json_topology_relations(
+        self,
+        path: Path,
+        fields: list[FieldProfile],
+        parsed: dict[object, object],
+    ) -> list[TopologyRelation]:
+        entity_key = self._first_role_name(fields, "entity")
+        if not entity_key or entity_key not in parsed:
+            return []
+        relations: list[TopologyRelation] = []
+        for field in fields:
+            if field.inferred_role != "topology" or field.name not in parsed:
+                continue
+            target_value = parsed[field.name]
+            if not target_value:
+                continue
+            relations.append(
+                TopologyRelation(
+                    source_entity_id=str(parsed[entity_key]),
+                    target_entity_id=str(target_value),
+                    relation_type=self._topology_relation_type(field.name),
+                    source_path=path,
+                )
+            )
+        return relations
+
+    def _topology_relation_type(self, field_name: str) -> str:
+        normalized = field_name.lower()
+        if "downstream" in normalized:
+            return "downstream"
+        if "dependency" in normalized or "depends" in normalized:
+            return "depends_on"
+        return "parent"
 
     def _is_float(self, value: str) -> bool:
         cleaned = value.strip()

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.models import Entity, SourceSchemaProfile
+from src.models import Entity, SourceSchemaProfile, TopologyRelation
 
 
 class EntityExtractor:
@@ -18,6 +18,8 @@ class EntityExtractor:
         for profile in schema_profiles:
             for entity_id in self._entity_ids_from_profile(profile):
                 entities = self._upsert_entity(entities, entity_id, profile)
+            for relation in profile.topology_relations:
+                entities = self._upsert_topology_relation(entities, relation)
         return sorted(entities, key=lambda entity: entity.entity_id)
 
     def _entity_ids_from_profile(self, profile: SourceSchemaProfile) -> list[str]:
@@ -54,6 +56,46 @@ class EntityExtractor:
                 display_name=entity_id,
                 observed_metric_names=metric_names,
                 related_source_paths=[profile.source_path],
+            )
+        )
+        return entities
+
+    def _upsert_topology_relation(
+        self,
+        entities: list[Entity],
+        relation: TopologyRelation,
+    ) -> list[Entity]:
+        entities = self._ensure_entity(entities, relation.source_entity_id, relation.source_path)
+        entities = self._ensure_entity(entities, relation.target_entity_id, relation.source_path)
+        source = next(entity for entity in entities if entity.entity_id == relation.source_entity_id)
+        target = next(entity for entity in entities if entity.entity_id == relation.target_entity_id)
+        if relation.relation_type in {"parent", "depends_on"}:
+            source.parent_entity_id = target.entity_id
+            if source.entity_id not in target.child_entity_ids:
+                target.child_entity_ids.append(source.entity_id)
+        if relation.relation_type == "downstream":
+            if target.entity_id not in source.child_entity_ids:
+                source.child_entity_ids.append(target.entity_id)
+            target.parent_entity_id = source.entity_id
+        return entities
+
+    def _ensure_entity(
+        self,
+        entities: list[Entity],
+        entity_id: str,
+        source_path: Path,
+    ) -> list[Entity]:
+        existing = next((entity for entity in entities if entity.entity_id == entity_id), None)
+        if existing:
+            if source_path not in existing.related_source_paths:
+                existing.related_source_paths.append(source_path)
+            return entities
+        entities.append(
+            Entity(
+                entity_id=entity_id,
+                entity_type="unknown",
+                display_name=entity_id,
+                related_source_paths=[source_path],
             )
         )
         return entities

@@ -422,6 +422,37 @@ class PipelineTest(unittest.TestCase):
             self.assertIn("cpu", entities[0].observed_metric_names)
             self.assertIn("memory", entities[0].observed_metric_names)
 
+    def test_entity_extractor_links_topology_relationships(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "topology.csv").write_text(
+                "service,parent_service,cpu\napi,gateway,80\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=5)
+            schema_profiler.setup()
+            profiles = schema_profiler.profile_catalog(catalog)
+
+            self.assertEqual(profiles[0].topology_relations[0].source_entity_id, "api")
+            self.assertEqual(profiles[0].topology_relations[0].target_entity_id, "gateway")
+
+            extractor = EntityExtractor()
+            extractor.setup()
+            entities = extractor.from_schema_profiles(profiles)
+            api = next(entity for entity in entities if entity.entity_id == "api")
+            gateway = next(entity for entity in entities if entity.entity_id == "gateway")
+
+            self.assertEqual(api.parent_entity_id, "gateway")
+            self.assertIn("api", gateway.child_entity_ids)
+
+            evidence_builder = EvidenceBuilder()
+            evidence_builder.setup()
+            evidence = evidence_builder.from_schema_profiles(profiles)
+            self.assertIn("topology_relation_detected", {item.signal_type for item in evidence})
+
     def test_schema_profiler_summarizes_text_log_signals(self) -> None:
         with TemporaryDirectory() as raw_path:
             tmp_path = Path(raw_path)
