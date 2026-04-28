@@ -80,7 +80,7 @@ Current repository state:
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
 - `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, and repeated-template bursts.
 - `src/hypotheses.py` ranks anomaly candidates with time/entity/supporting-evidence context and records supporting evidence IDs on each hypothesis.
-- `src/tools.py` generates, validates, and executes initial read-only investigation tool specs from the data profile.
+- `src/tools.py` generates, validates, and executes read-only investigation tool specs from the data profile, including focused line matches by anomaly time window or entity when readable source text is available.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
 - `src/agent.py` wraps the RCA workflow and prepares optional Pydantic AI integration.
 - `.gitignore` protects `.env`, `SA.json`, caches, virtual environments, and system files.
@@ -119,7 +119,7 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Expand executable tools beyond source availability into time-window filtering and focused source inspection.
+- Expand executable tools beyond line matching into structured extraction outputs per source type.
 - Improve hypothesis ranking with topology/entity relationships beyond flat entity IDs.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
@@ -152,3 +152,5 @@ Intended initial file layout:
 - Current place: 14 unittest tests pass. Next work should use burst evidence and time-aligned metric candidates to improve hypothesis ranking and report confidence.
 - `2026-04-28 03:30:00 -0700` | `uncommitted` | `Codex` | Added evidence-aware hypothesis ranking, supporting evidence IDs, minute-level anomaly alignment, and report confidence derivation.
 - Current place: 15 unittest tests pass. Next work should extend executable tool execution into focused time-window/entity filtering and then start the first real generate-validate-execute RLM loop.
+- `2026-04-28 03:33:00 -0700` | `uncommitted` | `Codex` | Added focused read-only tool execution for time-window/entity line matches with supporting evidence output.
+- Current place: 16 unittest tests pass. Next work should add structured extraction outputs per source type and then build the first deterministic generate-validate-execute loop skeleton.

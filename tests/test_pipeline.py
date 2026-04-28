@@ -77,6 +77,42 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(all(result.is_successful for result in executions))
             self.assertTrue(any(spec.source_kind == SourceKind.METRIC for spec in specs))
 
+    def test_tool_execution_returns_focused_time_window_matches(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            (tmp_path / "application.log").write_text(
+                "2026-01-01T09:59:00Z INFO warmup\n"
+                "2026-01-01T10:00:10Z ERROR checkout failed for api\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+
+            profiler = DataProfiler()
+            profiler.setup()
+            factory = InvestigationToolFactory()
+            factory.setup()
+            spec = next(
+                item
+                for item in factory.generate_specs(profiler.profile(catalog))
+                if item.source_kind == SourceKind.LOG
+            )
+            result = factory.execute_spec(
+                spec=spec,
+                catalog=catalog,
+                request=ToolExecutionRequest(
+                    tool_name=spec.name,
+                    source_kind=SourceKind.LOG,
+                    time_window="2026-01-01T10:00",
+                ),
+            )
+
+            self.assertTrue(result.is_successful)
+            self.assertEqual(result.evidence[0].signal_type, "log_focused_match")
+            self.assertEqual(result.evidence[0].relation, EvidenceRelation.SUPPORTS)
+            self.assertIn("checkout failed", result.evidence[0].summary)
+
     def test_schema_profiler_infers_csv_field_roles(self) -> None:
         with TemporaryDirectory() as raw_path:
             tmp_path = Path(raw_path)

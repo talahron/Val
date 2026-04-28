@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from src.models import (
     CatalogProfile,
     DataCatalog,
@@ -131,24 +133,72 @@ class InvestigationToolFactory:
             for file_profile in catalog.files
             if file_profile.source_kind == request.source_kind
         ]
-        evidence = [
-            Evidence(
-                evidence_id=f"{spec.name}:source:{index}",
-                source_path=file_profile.path,
-                entity_id=request.entity_id,
-                signal_type=f"{request.source_kind.value}_source_available",
-                summary=(
-                    f"Source file {file_profile.relative_path.as_posix()} is available "
-                    f"for {request.source_kind.value} inspection."
-                ),
-                relation=EvidenceRelation.NEUTRAL,
-                confidence=0.5,
+        evidence: list[Evidence] = []
+        for index, file_profile in enumerate(matching_files, start=1):
+            focused_evidence = self._focused_source_evidence(spec, file_profile.path, request, index)
+            if focused_evidence:
+                evidence.extend(focused_evidence)
+                continue
+            evidence.append(
+                Evidence(
+                    evidence_id=f"{spec.name}:source:{index}",
+                    source_path=file_profile.path,
+                    entity_id=request.entity_id,
+                    signal_type=f"{request.source_kind.value}_source_available",
+                    summary=(
+                        f"Source file {file_profile.relative_path.as_posix()} is available "
+                        f"for {request.source_kind.value} inspection."
+                    ),
+                    relation=EvidenceRelation.NEUTRAL,
+                    confidence=0.5,
+                )
             )
-            for index, file_profile in enumerate(matching_files, start=1)
-        ]
         return ToolExecutionResult(
             tool_name=spec.name,
             is_successful=True,
             evidence=evidence,
             summary=f"Inspected {len(matching_files)} {request.source_kind.value} sources.",
         )
+
+    def _focused_source_evidence(
+        self,
+        spec: InvestigationToolSpec,
+        source_path: Path,
+        request: ToolExecutionRequest,
+        source_index: int,
+    ) -> list[Evidence]:
+        if not request.time_window and not request.entity_id:
+            return []
+        text = source_path.read_text(encoding="utf-8", errors="ignore")
+        matching_lines = [
+            line.strip()
+            for line in text.splitlines()
+            if self._line_matches_request(line, request)
+        ][:5]
+        return [
+            Evidence(
+                evidence_id=f"{spec.name}:focus:{source_index}:{line_index}",
+                source_path=source_path,
+                entity_id=request.entity_id,
+                signal_type=f"{request.source_kind.value}_focused_match",
+                summary=f"Matched focused inspection line: {self._shorten(line)}",
+                relation=EvidenceRelation.SUPPORTS,
+                confidence=0.75,
+            )
+            for line_index, line in enumerate(matching_lines, start=1)
+        ]
+
+    def _line_matches_request(self, line: str, request: ToolExecutionRequest) -> bool:
+        if request.time_window and self._minute_prefix(request.time_window) in line.replace(" ", "T"):
+            return True
+        if request.entity_id and request.entity_id in line:
+            return True
+        return False
+
+    def _minute_prefix(self, timestamp: str) -> str:
+        return timestamp.strip().replace(" ", "T")[:16]
+
+    def _shorten(self, value: str) -> str:
+        if len(value) <= 180:
+            return value
+        return value[:177] + "..."

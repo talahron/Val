@@ -87,7 +87,11 @@ class RCAAgent:
             self.tool_factory.execute_spec(
                 spec=spec,
                 catalog=catalog,
-                request=ToolExecutionRequest(tool_name=spec.name, source_kind=spec.source_kind),
+                request=ToolExecutionRequest(
+                    tool_name=spec.name,
+                    source_kind=spec.source_kind,
+                    time_window=request.anomaly_start,
+                ),
             )
             for spec in tool_specs
         ]
