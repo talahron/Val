@@ -6,7 +6,17 @@ from src.entities import EntityExtractor
 from src.hypotheses import HypothesisBuilder
 from src.intake import DataCataloger
 from src.logger import AppLogger
-from src.models import AgentResponse, InvestigationRequest, RCAHypothesis, RCAReport, ToolExecutionRequest
+from src.models import (
+    AgentResponse,
+    InvestigationCycle,
+    InvestigationRequest,
+    RCAHypothesis,
+    RCAReport,
+    ToolExecutionRequest,
+    ToolExecutionResult,
+    ToolRunRecord,
+    ToolValidationResult,
+)
 from src.evidence import EvidenceBuilder
 from src.profiler import DataProfiler
 from src.reports import ReportWriter
@@ -111,6 +121,13 @@ class RCAAgent:
             candidates=anomaly_candidates,
             evidence=evidence,
         )
+        investigation_cycle = self._build_investigation_cycle(
+            tool_specs_count=len(tool_specs),
+            validation_results=validation_results,
+            execution_results=execution_results,
+            evidence_count=len(evidence),
+            hypothesis_count=len(hypotheses),
+        )
         report = RCAReport(
             executive_summary=(
                 "Initial RCA workspace profile completed. "
@@ -128,6 +145,7 @@ class RCAAgent:
             hypotheses=hypotheses,
             generated_tools=tool_specs,
             tool_validations=validation_results,
+            investigation_cycles=[investigation_cycle],
             confidence=self._report_confidence(hypotheses),
             data_gaps=self._build_data_gaps(request),
         )
@@ -151,6 +169,40 @@ class RCAAgent:
         if not hypotheses:
             return 0.0
         return max(hypothesis.confidence for hypothesis in hypotheses)
+
+    def _build_investigation_cycle(
+        self,
+        tool_specs_count: int,
+        validation_results: list[ToolValidationResult],
+        execution_results: list[ToolExecutionResult],
+        evidence_count: int,
+        hypothesis_count: int,
+    ) -> InvestigationCycle:
+        execution_records = [
+            ToolRunRecord(
+                tool_name=result.tool_name,
+                was_validated=self._tool_was_validated(result.tool_name, validation_results),
+                was_executed=result.is_successful,
+                evidence_count=len(result.evidence),
+                summary=result.summary,
+            )
+            for result in execution_results
+        ]
+        return InvestigationCycle(
+            cycle_id="cycle:deterministic:1",
+            generated_tool_count=tool_specs_count,
+            valid_tool_count=sum(result.is_valid for result in validation_results),
+            execution_records=execution_records,
+            evidence_count=evidence_count,
+            hypothesis_count=hypothesis_count,
+        )
+
+    def _tool_was_validated(
+        self,
+        tool_name: str,
+        validation_results: list[ToolValidationResult],
+    ) -> bool:
+        return any(result.tool_name == tool_name and result.is_valid for result in validation_results)
 
     def _setup_llm_agent(self) -> None:
         if self.llm_provider.lower() == "none":

@@ -264,6 +264,8 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(report.anomaly_candidates)
             self.assertTrue(report.anomaly_candidates[0].time_aligned)
             self.assertTrue(report.hypotheses)
+            self.assertTrue(report.investigation_cycles)
+            self.assertEqual(report.investigation_cycles[0].hypothesis_count, len(report.hypotheses))
             self.assertTrue((tmp_path / "report.json").exists())
             self.assertTrue((tmp_path / "report.md").exists())
 

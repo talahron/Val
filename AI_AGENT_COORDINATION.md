@@ -82,7 +82,7 @@ Current repository state:
 - `src/hypotheses.py` ranks anomaly candidates with time/entity/supporting-evidence context and records supporting evidence IDs on each hypothesis.
 - `src/tools.py` generates, validates, and executes read-only investigation tool specs from the data profile, including focused line matches by anomaly time window or entity when readable source text is available.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
-- `src/agent.py` wraps the RCA workflow and prepares optional Pydantic AI integration.
+- `src/agent.py` wraps the RCA workflow, records the deterministic generate-validate-execute-update cycle, and prepares optional Pydantic AI integration.
 - `.gitignore` protects `.env`, `SA.json`, caches, virtual environments, and system files.
 - The current runtime is deterministic when `LLM_PROVIDER=none`.
 - Pydantic AI is only imported when an LLM provider is enabled.
@@ -121,7 +121,7 @@ Intended initial file layout:
 
 - Expand executable tools beyond line matching into structured extraction outputs per source type.
 - Improve hypothesis ranking with topology/entity relationships beyond flat entity IDs.
-- Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
+- Turn the deterministic investigation cycle into an LLM/RLM-controlled loop with bounded iterations and tool proposal validation.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
 ## Current Active Stage
@@ -154,3 +154,5 @@ Intended initial file layout:
 - Current place: 15 unittest tests pass. Next work should extend executable tool execution into focused time-window/entity filtering and then start the first real generate-validate-execute RLM loop.
 - `2026-04-28 03:33:00 -0700` | `uncommitted` | `Codex` | Added focused read-only tool execution for time-window/entity line matches with supporting evidence output.
 - Current place: 16 unittest tests pass. Next work should add structured extraction outputs per source type and then build the first deterministic generate-validate-execute loop skeleton.
+- `2026-04-28 03:35:00 -0700` | `uncommitted` | `Codex` | Added Pydantic investigation-cycle state for the deterministic generate-validate-execute-update workflow and exposed it in reports.
+- Current place: 16 unittest tests pass. Next work should turn the deterministic cycle into a bounded LLM/RLM-controlled loop and add structured extraction outputs per source type.

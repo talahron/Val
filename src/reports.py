@@ -46,6 +46,9 @@ class ReportWriter:
             "## Generated Tools",
             *self._tool_lines(report),
             "",
+            "## Investigation Cycles",
+            *self._cycle_lines(report),
+            "",
         ]
         self.markdown_output_path.write_text("\n".join(sections), encoding="utf-8")
         return self.markdown_output_path
@@ -97,4 +100,16 @@ class ReportWriter:
         return [
             f"- `{hypothesis.title}` confidence={hypothesis.confidence:.2f}: {hypothesis.summary}"
             for hypothesis in report.hypotheses
+        ]
+
+    def _cycle_lines(self, report: RCAReport) -> list[str]:
+        if not report.investigation_cycles:
+            return ["- No investigation cycles recorded."]
+        return [
+            (
+                f"- `{cycle.cycle_id}` tools={cycle.generated_tool_count}, "
+                f"valid={cycle.valid_tool_count}, evidence={cycle.evidence_count}, "
+                f"hypotheses={cycle.hypothesis_count}"
+            )
+            for cycle in report.investigation_cycles
         ]

@@ -154,6 +154,23 @@ class AgentResponse(BaseModel):
     confidence: float = Field(..., description="Result confidence score", ge=0.0, le=1.0)
 
 
+class ToolRunRecord(BaseModel):
+    tool_name: str
+    was_validated: bool
+    was_executed: bool
+    evidence_count: int
+    summary: str
+
+
+class InvestigationCycle(BaseModel):
+    cycle_id: str
+    generated_tool_count: int
+    valid_tool_count: int
+    execution_records: list[ToolRunRecord] = Field(default_factory=list)
+    evidence_count: int
+    hypothesis_count: int
+
+
 class RCAReport(BaseModel):
     executive_summary: str
     impacted_sli: str | None
@@ -165,6 +182,7 @@ class RCAReport(BaseModel):
     hypotheses: list[RCAHypothesis] = Field(default_factory=list)
     generated_tools: list[InvestigationToolSpec] = Field(default_factory=list)
     tool_validations: list[ToolValidationResult] = Field(default_factory=list)
+    investigation_cycles: list[InvestigationCycle] = Field(default_factory=list)
     alternative_hypotheses: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
     data_gaps: list[str] = Field(default_factory=list)
