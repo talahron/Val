@@ -6,7 +6,7 @@ from src.entities import EntityExtractor
 from src.hypotheses import HypothesisBuilder
 from src.intake import DataCataloger
 from src.logger import AppLogger
-from src.models import AgentResponse, InvestigationRequest, RCAReport, ToolExecutionRequest
+from src.models import AgentResponse, InvestigationRequest, RCAHypothesis, RCAReport, ToolExecutionRequest
 from src.evidence import EvidenceBuilder
 from src.profiler import DataProfiler
 from src.reports import ReportWriter
@@ -105,6 +105,7 @@ class RCAAgent:
         hypotheses = self.hypothesis_builder.from_anomaly_candidates(
             request=request,
             candidates=anomaly_candidates,
+            evidence=evidence,
         )
         report = RCAReport(
             executive_summary=(
@@ -123,7 +124,7 @@ class RCAAgent:
             hypotheses=hypotheses,
             generated_tools=tool_specs,
             tool_validations=validation_results,
-            confidence=0.0,
+            confidence=self._report_confidence(hypotheses),
             data_gaps=self._build_data_gaps(request),
         )
         report_path = self.report_writer.write_json(report)
@@ -141,6 +142,11 @@ class RCAAgent:
             data_gaps.append("No anomaly time window was provided.")
         data_gaps.append("No causal hypothesis has been evaluated yet.")
         return data_gaps
+
+    def _report_confidence(self, hypotheses: list[RCAHypothesis]) -> float:
+        if not hypotheses:
+            return 0.0
+        return max(hypothesis.confidence for hypothesis in hypotheses)
 
     def _setup_llm_agent(self) -> None:
         if self.llm_provider.lower() == "none":

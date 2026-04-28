@@ -73,12 +73,13 @@ Current repository state:
 - `src/logger.py` contains the centralized application logger.
 - `src/models.py` contains all Pydantic data structures currently used by the app.
 - `src/anomalies.py` builds early anomaly candidates from numeric sample summaries.
+- `src/anomalies.py` aligns numeric observations to the anomaly time by exact timestamp or minute-level timestamp prefix.
 - `src/entities.py` extracts initial entities from observed entity fields and links them to source files and metrics.
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
 - `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, and repeated-template bursts.
-- `src/hypotheses.py` turns ranked anomaly candidates into initial RCA hypotheses tied to the impacted SLI when provided.
+- `src/hypotheses.py` ranks anomaly candidates with time/entity/supporting-evidence context and records supporting evidence IDs on each hypothesis.
 - `src/tools.py` generates, validates, and executes initial read-only investigation tool specs from the data profile.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
 - `src/agent.py` wraps the RCA workflow and prepares optional Pydantic AI integration.
@@ -119,8 +120,7 @@ Intended initial file layout:
 ## Current Task List
 
 - Expand executable tools beyond source availability into time-window filtering and focused source inspection.
-- Improve hypothesis ranking with evidence density and topology/entity relationships.
-- Use log template bursts as RCA signals in hypothesis ranking.
+- Improve hypothesis ranking with topology/entity relationships beyond flat entity IDs.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -150,3 +150,5 @@ Intended initial file layout:
 - Current place: 13 unittest tests pass. Next work should add burst detection for repeated templates and then feed template/time/entity density into hypothesis ranking.
 - `2026-04-28 03:27:00 -0700` | `uncommitted` | `Codex` | Added minute-level repeated message burst detection and supporting evidence.
 - Current place: 14 unittest tests pass. Next work should use burst evidence and time-aligned metric candidates to improve hypothesis ranking and report confidence.
+- `2026-04-28 03:30:00 -0700` | `uncommitted` | `Codex` | Added evidence-aware hypothesis ranking, supporting evidence IDs, minute-level anomaly alignment, and report confidence derivation.
+- Current place: 15 unittest tests pass. Next work should extend executable tool execution into focused time-window/entity filtering and then start the first real generate-validate-execute RLM loop.

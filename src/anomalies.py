@@ -67,9 +67,18 @@ class AnomalyCandidateBuilder:
             return None
         normalized_anomaly = anomaly_start.strip()
         for observation in summary.observations:
-            if observation.timestamp and observation.timestamp.strip() == normalized_anomaly:
+            if observation.timestamp and self._timestamps_align(observation.timestamp, normalized_anomaly):
                 return observation
         return None
+
+    def _timestamps_align(self, observation_timestamp: str, anomaly_start: str) -> bool:
+        normalized_observation = observation_timestamp.strip()
+        if normalized_observation == anomaly_start:
+            return True
+        return self._minute_prefix(normalized_observation) == self._minute_prefix(anomaly_start)
+
+    def _minute_prefix(self, timestamp: str) -> str:
+        return timestamp.replace(" ", "T")[:16]
 
     def _alignment_summary(self, observation: NumericObservation | None) -> str:
         if not observation:

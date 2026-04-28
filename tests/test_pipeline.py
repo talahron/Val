@@ -14,6 +14,7 @@ from src.reports import ReportWriter
 from src.schema import SchemaProfiler
 from src.tools import InvestigationToolFactory, ToolExecutionRequest
 from src.logger import AppLogger
+from src.models import Evidence, EvidenceRelation
 
 
 class PipelineTest(unittest.TestCase):
@@ -251,10 +252,56 @@ class PipelineTest(unittest.TestCase):
             hypotheses = builder.from_anomaly_candidates(
                 request=InvestigationRequest(data_root=tmp_path, impacted_sli="latency"),
                 candidates=candidates,
+                evidence=[],
             )
 
             self.assertEqual(len(hypotheses), 1)
             self.assertIn("latency", hypotheses[0].title)
+
+    def test_hypothesis_builder_uses_supporting_evidence(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            source = tmp_path / "metrics.csv"
+            candidate_builder = AnomalyCandidateBuilder()
+            candidate_builder.setup()
+            source.write_text(
+                "timestamp,service,cpu\n2026-01-01T10:00:00Z,api,10\n2026-01-01T10:00:30Z,api,99\n",
+                encoding="utf-8",
+            )
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=10)
+            schema_profiler.setup()
+            candidates = candidate_builder.from_schema_profiles(
+                schema_profiler.profile_catalog(cataloger.build_catalog()),
+                anomaly_start="2026-01-01T10:00",
+            )
+            evidence = [
+                Evidence(
+                    evidence_id="burst:1",
+                    source_path=tmp_path / "application.log",
+                    signal_type="message_burst_summary",
+                    summary="Detected repeated message bursts: ERROR request failed at 2026-01-01T10:00 (4).",
+                    relation=EvidenceRelation.SUPPORTS,
+                    confidence=0.75,
+                )
+            ]
+            builder = HypothesisBuilder(max_hypotheses=1)
+            builder.setup()
+            from src.models import InvestigationRequest
+
+            hypotheses = builder.from_anomaly_candidates(
+                request=InvestigationRequest(
+                    data_root=tmp_path,
+                    impacted_sli="latency",
+                    anomaly_start="2026-01-01T10:00",
+                ),
+                candidates=candidates,
+                evidence=evidence,
+            )
+
+            self.assertEqual(hypotheses[0].supporting_evidence_ids, ["burst:1"])
+            self.assertGreater(hypotheses[0].confidence, 0.8)
 
     def test_entity_extractor_uses_entity_observations(self) -> None:
         with TemporaryDirectory() as raw_path:
