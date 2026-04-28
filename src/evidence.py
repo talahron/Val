@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.models import Evidence, EvidenceRelation, FieldProfile, SourceSchemaProfile
+from src.models import Evidence, EvidenceRelation, FieldProfile, SourceSchemaProfile, StructuredExtraction
 
 
 class EvidenceBuilder:
@@ -18,6 +18,23 @@ class EvidenceBuilder:
         for profile in schema_profiles:
             evidence.extend(self._build_profile_evidence(profile))
         return evidence
+
+    def from_structured_extractions(self, extractions: list[StructuredExtraction]) -> list[Evidence]:
+        if not self._is_ready:
+            raise ValueError("EvidenceBuilder.setup() must be called before from_structured_extractions().")
+
+        return [
+            Evidence(
+                evidence_id=f"extraction:{index}:{self._safe_id(extraction.source_path)}",
+                source_path=extraction.source_path,
+                entity_id=extraction.entity_id,
+                signal_type=f"{extraction.signal_type}_extracted",
+                summary=self._extraction_summary(extraction),
+                relation=EvidenceRelation.SUPPORTS,
+                confidence=self._extraction_confidence(extraction),
+            )
+            for index, extraction in enumerate(extractions, start=1)
+        ]
 
     def _build_profile_evidence(self, profile: SourceSchemaProfile) -> list[Evidence]:
         role_counts = self._count_roles(profile.fields)
@@ -83,6 +100,35 @@ class EvidenceBuilder:
 
     def _safe_id(self, path: Path) -> str:
         return path.as_posix().replace("/", "_").replace("\\", "_").replace(":", "")
+
+    def _extraction_summary(self, extraction: StructuredExtraction) -> str:
+        parts = [
+            f"Extracted {extraction.signal_type} from {extraction.source_path.as_posix()}"
+        ]
+        if extraction.signal_name:
+            parts.append(f"signal={extraction.signal_name}")
+        if extraction.value is not None:
+            parts.append(f"value={extraction.value}")
+        if extraction.status:
+            parts.append(f"status={extraction.status}")
+        if extraction.severity:
+            parts.append(f"severity={extraction.severity}")
+        if extraction.timestamp:
+            parts.append(f"timestamp={extraction.timestamp}")
+        if extraction.entity_id:
+            parts.append(f"entity={extraction.entity_id}")
+        parts.append(f"text={extraction.text}")
+        return "; ".join(parts) + "."
+
+    def _extraction_confidence(self, extraction: StructuredExtraction) -> float:
+        confidence = 0.7
+        if extraction.timestamp:
+            confidence += 0.05
+        if extraction.entity_id:
+            confidence += 0.05
+        if extraction.value is not None or extraction.status or extraction.severity:
+            confidence += 0.05
+        return min(confidence, 0.85)
 
     def _build_timestamp_evidence(self, profile: SourceSchemaProfile) -> list[Evidence]:
         if not profile.timestamp_examples:

@@ -306,6 +306,12 @@ class PipelineTest(unittest.TestCase):
             self.assertTrue(report.anomaly_candidates)
             self.assertTrue(report.anomaly_candidates[0].time_aligned)
             self.assertTrue(report.hypotheses)
+            self.assertTrue(report.structured_extractions)
+            self.assertEqual(report.structured_extractions[0].signal_name, "cpu")
+            self.assertIn(
+                "metric_sample_extracted",
+                {item.signal_type for item in report.evidence},
+            )
             self.assertTrue(report.investigation_cycles)
             self.assertEqual(len(report.investigation_cycles), 2)
             self.assertEqual(report.investigation_cycles[0].hypothesis_count, len(report.hypotheses))

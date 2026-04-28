@@ -78,11 +78,11 @@ Current repository state:
 - `src/intake.py` catalogs customer data files while ignoring repository/system folders.
 - `src/profiler.py` creates a first structured profile from the data catalog.
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
-- `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, and repeated-template bursts.
+- `src/evidence.py` converts schema profiles and structured tool extractions into evidence, including detected timestamp/entity/metric/status fields, timestamp examples, numeric sample summaries, text severity counts, repeated message templates, repeated-template bursts, and focused extracted records.
 - `src/hypotheses.py` ranks anomaly candidates with time/entity/supporting-evidence context and records supporting evidence IDs on each hypothesis.
-- `src/tools.py` generates, validates, and executes read-only investigation tool specs from the data profile, including focused line matches by anomaly time window or entity, readable-line structured extractions, and delimited metric/event/trace/config row extraction.
-- `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
-- `src/agent.py` wraps the RCA workflow, records bounded deterministic generate-validate-execute-update cycles, scopes cycle evidence IDs, and prepares optional Pydantic AI integration.
+- `src/tools.py` generates, validates, and executes read-only investigation tool specs from the schema-enriched data profile, including focused line matches by anomaly time window or entity, readable-line structured extractions, and delimited metric/event/trace/config row extraction.
+- `src/reports.py` writes RCA reports as JSON and Markdown artifacts, including structured extraction summaries.
+- `src/agent.py` wraps the RCA workflow, feeds schema-inferred source kinds back into the catalog before tool generation, records bounded deterministic generate-validate-execute-update cycles, scopes cycle evidence IDs, and prepares optional Pydantic AI integration.
 - `.gitignore` protects `.env`, `SA.json`, caches, virtual environments, and system files.
 - The current runtime is deterministic when `LLM_PROVIDER=none`.
 - Pydantic AI is only imported when an LLM provider is enabled.
@@ -119,7 +119,7 @@ Intended initial file layout:
 
 ## Current Task List
 
-- Feed structured extraction records into evidence generation, hypothesis ranking, and report output.
+- Add evidence-to-extraction traceability IDs so every extracted record can be followed from source line/row to hypothesis support.
 - Add topology extraction and relationship modeling beyond flat entity IDs.
 - Improve hypothesis ranking with topology/entity relationships beyond flat entity IDs.
 - Turn bounded deterministic investigation cycles into an LLM/RLM-controlled loop with tool proposal validation.
@@ -161,3 +161,5 @@ Intended initial file layout:
 - Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should deepen extraction models by source type and connect the bounded cycle to an LLM/RLM planner.
 - `2026-04-28 07:02:00 -0700` | `uncommitted` | `Codex` | Added Pydantic delimited-row extraction for focused metric/event/trace/config records, including signal name, value, entity, timestamp, and status fields.
 - Current place: 17 unittest tests pass. Next work should expose structured extractions in reports and use them as first-class evidence for RCA hypotheses.
+- `2026-04-28 07:06:00 -0700` | `uncommitted` | `Codex` | Connected structured extractions into RCA reports and supporting evidence, and enriched tool generation with schema-inferred source kinds.
+- Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should add explicit extraction/evidence trace IDs and topology relationships.

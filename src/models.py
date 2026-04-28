@@ -178,6 +178,7 @@ class RCAReport(BaseModel):
     suspected_root_cause: str | None
     affected_entities: list[Entity] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
+    structured_extractions: list[StructuredExtraction] = Field(default_factory=list)
     schema_profiles: list[SourceSchemaProfile] = Field(default_factory=list)
     anomaly_candidates: list[AnomalyCandidate] = Field(default_factory=list)
     hypotheses: list[RCAHypothesis] = Field(default_factory=list)

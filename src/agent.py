@@ -14,6 +14,9 @@ from src.models import (
     InvestigationRequest,
     RCAHypothesis,
     RCAReport,
+    SourceSchemaProfile,
+    SourceKind,
+    StructuredExtraction,
     ToolExecutionRequest,
     ToolExecutionResult,
     ToolRunRecord,
@@ -95,8 +98,9 @@ class RCAAgent:
             customer_context=self.customer_context,
         )
         catalog = self.cataloger.build_catalog()
-        profile = self.profiler.profile(catalog)
         schema_profiles = self.schema_profiler.profile_catalog(catalog)
+        catalog = self._catalog_with_schema_source_kinds(catalog, schema_profiles)
+        profile = self.profiler.profile(catalog)
         tool_specs = self.tool_factory.generate_specs(profile)
         validation_results = self.tool_factory.validate_specs(tool_specs)
         valid_tool_count = sum(result.is_valid for result in validation_results)
@@ -112,7 +116,9 @@ class RCAAgent:
             for result in execution_results
             for evidence in result.evidence
         ]
+        structured_extractions = self._structured_extractions_from_cycles(cycle_results)
         evidence.extend(self.evidence_builder.from_schema_profiles(schema_profiles))
+        evidence.extend(self.evidence_builder.from_structured_extractions(structured_extractions))
         entities = self.entity_extractor.from_schema_profiles(schema_profiles)
         anomaly_candidates = self.anomaly_builder.from_schema_profiles(
             schema_profiles=schema_profiles,
@@ -146,6 +152,7 @@ class RCAAgent:
             suspected_root_cause=None,
             affected_entities=entities,
             evidence=evidence,
+            structured_extractions=structured_extractions,
             schema_profiles=schema_profiles,
             anomaly_candidates=anomaly_candidates,
             hypotheses=hypotheses,
@@ -175,6 +182,50 @@ class RCAAgent:
         if not hypotheses:
             return 0.0
         return max(hypothesis.confidence for hypothesis in hypotheses)
+
+    def _structured_extractions_from_cycles(
+        self,
+        cycle_results: list[tuple[int, list[ToolExecutionResult]]],
+    ) -> list[StructuredExtraction]:
+        return [
+            extraction
+            for _, execution_results in cycle_results
+            for result in execution_results
+            for extraction in result.extractions
+        ]
+
+    def _catalog_with_schema_source_kinds(
+        self,
+        catalog: DataCatalog,
+        schema_profiles: list[SourceSchemaProfile],
+    ) -> DataCatalog:
+        return catalog.model_copy(
+            update={
+                "files": [
+                    file_profile.model_copy(
+                        update={
+                            "source_kind": self._schema_source_kind_for_path(
+                                source_path=file_profile.path,
+                                fallback=file_profile.source_kind,
+                                schema_profiles=schema_profiles,
+                            )
+                        }
+                    )
+                    for file_profile in catalog.files
+                ]
+            }
+        )
+
+    def _schema_source_kind_for_path(
+        self,
+        source_path: Path,
+        fallback: SourceKind,
+        schema_profiles: list[SourceSchemaProfile],
+    ) -> SourceKind:
+        for profile in schema_profiles:
+            if profile.source_path == source_path:
+                return profile.inferred_source_kind
+        return fallback
 
     def _run_investigation_cycles(
         self,

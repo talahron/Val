@@ -37,6 +37,9 @@ class ReportWriter:
             "## Evidence",
             *self._evidence_lines(report),
             "",
+            "## Structured Extractions",
+            *self._structured_extraction_lines(report),
+            "",
             "## Anomaly Candidates",
             *self._anomaly_lines(report),
             "",
@@ -73,6 +76,21 @@ class ReportWriter:
                 f"sources={len(entity.related_source_paths)}"
             )
             for entity in report.affected_entities
+        ]
+
+    def _structured_extraction_lines(self, report: RCAReport) -> list[str]:
+        if not report.structured_extractions:
+            return ["- No structured extractions collected."]
+        return [
+            (
+                f"- `{extraction.signal_type}`"
+                f"{f' `{extraction.signal_name}`' if extraction.signal_name else ''}"
+                f" from `{extraction.source_path}`"
+                f"{f' entity={extraction.entity_id}' if extraction.entity_id else ''}"
+                f"{f' value={extraction.value}' if extraction.value is not None else ''}"
+                f"{f' status={extraction.status}' if extraction.status else ''}"
+            )
+            for extraction in report.structured_extractions[:50]
         ]
 
     def _tool_lines(self, report: RCAReport) -> list[str]:
