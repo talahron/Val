@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from src.anomalies import AnomalyCandidateBuilder
+from src.hypotheses import HypothesisBuilder
 from src.intake import DataCataloger
 from src.logger import AppLogger
 from src.models import AgentResponse, InvestigationRequest, RCAReport, ToolExecutionRequest
@@ -23,6 +24,7 @@ class RCAAgent:
         customer_context: str | None,
         max_schema_files: int,
         max_schema_lines: int,
+        max_hypotheses: int,
         llm_provider: str,
         llm_model: str,
         openai_api_key: str,
@@ -36,6 +38,7 @@ class RCAAgent:
         self.customer_context = customer_context
         self.max_schema_files = max_schema_files
         self.max_schema_lines = max_schema_lines
+        self.max_hypotheses = max_hypotheses
         self.llm_provider = llm_provider
         self.llm_model = llm_model
         self.openai_api_key = openai_api_key
@@ -45,6 +48,7 @@ class RCAAgent:
         self.schema_profiler = SchemaProfiler(max_files=max_schema_files, max_lines=max_schema_lines)
         self.evidence_builder = EvidenceBuilder()
         self.anomaly_builder = AnomalyCandidateBuilder()
+        self.hypothesis_builder = HypothesisBuilder(max_hypotheses=max_hypotheses)
         self.tool_factory = InvestigationToolFactory()
         self.report_writer = ReportWriter(
             output_path=output_path,
@@ -58,6 +62,7 @@ class RCAAgent:
         self.schema_profiler.setup()
         self.evidence_builder.setup()
         self.anomaly_builder.setup()
+        self.hypothesis_builder.setup()
         self.tool_factory.setup()
         self.report_writer.setup()
         self._setup_llm_agent()
@@ -90,6 +95,10 @@ class RCAAgent:
         ]
         evidence.extend(self.evidence_builder.from_schema_profiles(schema_profiles))
         anomaly_candidates = self.anomaly_builder.from_schema_profiles(schema_profiles)
+        hypotheses = self.hypothesis_builder.from_anomaly_candidates(
+            request=request,
+            candidates=anomaly_candidates,
+        )
         report = RCAReport(
             executive_summary=(
                 "Initial RCA workspace profile completed. "
@@ -103,6 +112,7 @@ class RCAAgent:
             evidence=evidence,
             schema_profiles=schema_profiles,
             anomaly_candidates=anomaly_candidates,
+            hypotheses=hypotheses,
             generated_tools=tool_specs,
             tool_validations=validation_results,
             confidence=0.0,

@@ -77,6 +77,7 @@ Current repository state:
 - `src/profiler.py` creates a first structured profile from the data catalog.
 - `src/schema.py` samples readable sources and infers basic field roles such as timestamp, entity, metric, latency, and status.
 - `src/evidence.py` converts schema profiles into structured evidence, including detected timestamp/entity/metric/status fields, timestamp examples, and numeric sample summaries.
+- `src/hypotheses.py` turns ranked anomaly candidates into initial RCA hypotheses tied to the impacted SLI when provided.
 - `src/tools.py` generates, validates, and executes initial read-only investigation tool specs from the data profile.
 - `src/reports.py` writes RCA reports as JSON and Markdown artifacts.
 - `src/agent.py` wraps the RCA workflow and prepares optional Pydantic AI integration.
@@ -117,7 +118,7 @@ Intended initial file layout:
 ## Current Task List
 
 - Expand executable tools beyond source availability into deeper log summaries and time-window filtering.
-- Use anomaly candidates to create initial hypotheses and rank likely affected signals.
+- Improve hypothesis ranking with time-window alignment, entity hints, and evidence density.
 - Implement the first real RLM loop: profile data, generate a tool, validate it, execute it, store evidence, then update hypotheses.
 - Add dependency documentation or packaging once the first executable workflow stabilizes.
 
@@ -135,3 +136,5 @@ Intended initial file layout:
 - Current place: `python main.py`, `python -m unittest discover -s tests`, and `python -m compileall main.py src tests` pass. Next work should build early anomaly candidates from numeric summaries and user-provided SLI/time windows.
 - `2026-04-28 02:00:00 -0700` | `uncommitted` | `Codex` | Added early numeric-spread anomaly candidates and full deterministic RCA agent workflow coverage.
 - Current place: 8 unittest tests pass. Local branch has commits ahead of origin because `git push origin main` is timing out after commit creation.
+- `2026-04-28 02:02:00 -0700` | `uncommitted` | `Codex` | Added initial RCA hypothesis generation from anomaly candidates and included hypotheses in JSON/Markdown reports.
+- Current place: 9 unittest tests pass. Next work should make hypotheses time-window aware and add richer source-type classification based on inferred schemas.

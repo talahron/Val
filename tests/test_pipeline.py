@@ -5,6 +5,7 @@ import unittest
 from src.agent import RCAAgent
 from src.intake import DataCataloger
 from src.anomalies import AnomalyCandidateBuilder
+from src.hypotheses import HypothesisBuilder
 from src.evidence import EvidenceBuilder
 from src.models import SourceKind
 from src.profiler import DataProfiler
@@ -181,6 +182,7 @@ class PipelineTest(unittest.TestCase):
                 customer_context="unit test",
                 max_schema_files=10,
                 max_schema_lines=5,
+                max_hypotheses=5,
                 llm_provider="none",
                 llm_model="openai:gpt-4.1-mini",
                 openai_api_key="",
@@ -192,8 +194,35 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(report.impacted_sli, "latency")
             self.assertTrue(report.evidence)
             self.assertTrue(report.anomaly_candidates)
+            self.assertTrue(report.hypotheses)
             self.assertTrue((tmp_path / "report.json").exists())
             self.assertTrue((tmp_path / "report.md").exists())
+
+    def test_hypothesis_builder_uses_anomaly_candidates(self) -> None:
+        with TemporaryDirectory() as raw_path:
+            tmp_path = Path(raw_path)
+            candidate = AnomalyCandidateBuilder()
+            candidate.setup()
+            source = tmp_path / "metrics.csv"
+            source.write_text("time,cpu\n1,1\n2,99\n", encoding="utf-8")
+            cataloger = DataCataloger(data_root=tmp_path)
+            cataloger.setup()
+            catalog = cataloger.build_catalog()
+            schema_profiler = SchemaProfiler(max_files=10, max_lines=5)
+            schema_profiler.setup()
+            candidates = candidate.from_schema_profiles(schema_profiler.profile_catalog(catalog))
+
+            builder = HypothesisBuilder(max_hypotheses=1)
+            builder.setup()
+            from src.models import InvestigationRequest
+
+            hypotheses = builder.from_anomaly_candidates(
+                request=InvestigationRequest(data_root=tmp_path, impacted_sli="latency"),
+                candidates=candidates,
+            )
+
+            self.assertEqual(len(hypotheses), 1)
+            self.assertIn("latency", hypotheses[0].title)
 
 
 if __name__ == "__main__":

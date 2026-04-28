@@ -19,6 +19,7 @@ def main() -> None:
         customer_context=config.CUSTOMER_CONTEXT or None,
         max_schema_files=config.MAX_SCHEMA_FILES,
         max_schema_lines=config.MAX_SCHEMA_LINES,
+        max_hypotheses=config.MAX_HYPOTHESES,
         llm_provider=config.LLM_PROVIDER,
         llm_model=config.LLM_MODEL,
         openai_api_key=config.OPENAI_API_KEY,

@@ -37,6 +37,9 @@ class ReportWriter:
             "## Anomaly Candidates",
             *self._anomaly_lines(report),
             "",
+            "## Initial Hypotheses",
+            *self._hypothesis_lines(report),
+            "",
             "## Generated Tools",
             *self._tool_lines(report),
             "",
@@ -69,4 +72,12 @@ class ReportWriter:
         return [
             f"- `{candidate.signal_name}` score={candidate.score:.3f}: {candidate.summary}"
             for candidate in report.anomaly_candidates[:20]
+        ]
+
+    def _hypothesis_lines(self, report: RCAReport) -> list[str]:
+        if not report.hypotheses:
+            return ["- No hypotheses generated."]
+        return [
+            f"- `{hypothesis.title}` confidence={hypothesis.confidence:.2f}: {hypothesis.summary}"
+            for hypothesis in report.hypotheses
         ]
